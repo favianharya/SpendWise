@@ -43,7 +43,7 @@ self.addEventListener('activate', (event) => {
 
 // Fetch event - serve from cache, fallback to network
 self.addEventListener('fetch', (event) => {
-    // Skip non-GET requests and Google Sheets sync requests
+    // Skip non-GET requests
     if (event.request.method !== 'GET') {
         return;
     }
@@ -86,14 +86,4 @@ self.addEventListener('fetch', (event) => {
     );
 });
 
-// Background sync for offline expenses (future enhancement)
-self.addEventListener('sync', (event) => {
-    if (event.tag === 'sync-expenses') {
-        event.waitUntil(syncPendingExpenses());
-    }
-});
 
-async function syncPendingExpenses() {
-    // This would sync any expenses saved while offline
-    console.log('Background sync triggered');
-}

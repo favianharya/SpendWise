@@ -1,6 +1,6 @@
 # 💰 SpendWise - Smart Expense Tracker
 
-A beautiful Progressive Web App (PWA) for tracking daily expenses with Google Sheets integration.
+A beautiful Progressive Web App (PWA) for tracking daily expenses with 100% privacy. All data is stored locally on your device.
 
 ## Features
 
@@ -10,26 +10,29 @@ A beautiful Progressive Web App (PWA) for tracking daily expenses with Google Sh
 - ✅ **Statistics & Charts** - Beautiful doughnut and line charts
 - ✅ **Offline Support** - Works without internet connection
 - ✅ **Installable** - Add to home screen like a native app
-- ✅ **Google Sheets Sync** - Export expenses to your own Google Sheet
+- ✅ **CSV Export** - Download your data as a CSV file anytime
 - ✅ **Indonesian Rupiah** - Currency formatted for IDR
+- ✅ **Privacy Focused** - No cloud sync, your data stays on your device
 
-## Installation on Android
+## Installation
 
-### Method 1: Direct Installation (Recommended)
-1. Open the app URL in Chrome
+### On Android (Chrome)
+1. Open the app URL
 2. Tap the menu (⋮) button
 3. Select "Add to Home screen"
 4. Tap "Add"
 
-### Method 2: Install Prompt
-- When you visit the app, Chrome may show an "Install" banner
-- Simply tap "Install" to add to your home screen
+### On iPhone (Safari)
+1. Open the app URL
+2. Tap the Share button (square with arrow)
+3. Scroll down and tap "Add to Home Screen"
+4. Tap "Add"
 
 ## Running Locally
 
 1. Navigate to the project folder:
    ```bash
-   cd expense-tracker
+   cd SpendWise
    ```
 
 2. Start a local server:
@@ -43,36 +46,6 @@ A beautiful Progressive Web App (PWA) for tracking daily expenses with Google Sh
 
 3. Open http://localhost:8080 in your browser
 
-## Google Sheets Integration
-
-To sync your expenses to Google Sheets:
-
-1. **Create a Google Sheet**
-   - Go to [Google Sheets](https://sheets.google.com)
-   - Create a new spreadsheet
-
-2. **Add the Apps Script**
-   - Go to Extensions → Apps Script
-   - Delete any existing code
-   - Copy the contents of `google-apps-script.js` and paste it
-   - Save the project (Ctrl+S)
-
-3. **Deploy as Web App**
-   - Click Deploy → New deployment
-   - Click the gear icon and select "Web app"
-   - Set "Execute as" to "Me"
-   - Set "Who has access" to "Anyone"
-   - Click Deploy
-   - Authorize the app when prompted
-   - Copy the Web App URL
-
-4. **Configure SpendWise**
-   - Click the sync button (🌐) in SpendWise
-   - Paste the Web App URL
-   - Click "Save & Test Connection"
-
-Now your expenses will automatically sync to Google Sheets!
-
 ## Tech Stack
 
 - **HTML5** - Semantic markup
@@ -85,15 +58,13 @@ Now your expenses will automatically sync to Google Sheets!
 ## Project Structure
 
 ```
-expense-tracker/
+SpendWise/
 ├── index.html          # Main HTML file
 ├── styles.css          # All styles
 ├── app.js              # Application logic
 ├── sw.js               # Service worker
 ├── manifest.json       # PWA manifest
-├── google-apps-script.js # Google Sheets integration
 ├── icons/              # App icons
-│   └── icon.svg        # Source icon
 └── README.md           # This file
 ```
 
@@ -106,7 +77,6 @@ const formatCurrency = (amount) => {
     return new Intl.NumberFormat('en-US', {
         style: 'currency',
         currency: 'USD',
-        // ... options
     }).format(amount);
 };
 ```
@@ -120,9 +90,6 @@ const CATEGORIES = {
     newCategory: { icon: '🎯', color: '#abcdef' }
 };
 ```
-
-### Change Theme Colors
-Edit `styles.css` and modify the CSS variables in `:root`
 
 ## Browser Support
 
