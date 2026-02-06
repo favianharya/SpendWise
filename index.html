@@ -1,30 +1,33 @@
 <!DOCTYPE html>
 <html lang="en">
+
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
     <meta name="theme-color" content="#0f0f23">
-    <meta name="description" content="Track your daily expenses with beautiful charts and sync to Google Sheets">
+    <meta name="description" content="Track your daily expenses with beautiful charts and export to CSV">
     <meta name="apple-mobile-web-app-capable" content="yes">
     <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
     <meta name="apple-mobile-web-app-title" content="SpendWise">
-    
+
     <title>SpendWise - Smart Expense Tracker</title>
-    
+
     <link rel="manifest" href="manifest.json">
     <link rel="icon" type="image/png" href="icons/icon-192.png">
     <link rel="apple-touch-icon" href="icons/icon-192.png">
-    
+
     <!-- Google Fonts -->
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
-    
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&display=swap"
+        rel="stylesheet">
+
     <!-- Chart.js -->
     <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.min.js"></script>
-    
+
     <link rel="stylesheet" href="styles.css">
 </head>
+
 <body>
     <!-- Splash Screen -->
     <div id="splash" class="splash">
@@ -45,9 +48,11 @@
                     <span class="logo-icon">💰</span>
                     <span class="logo-text">SpendWise</span>
                 </div>
-                <button id="syncBtn" class="sync-btn" title="Sync to Google Sheets">
+                <button id="exportBtn" class="sync-btn" title="Export to CSV">
                     <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                        <path d="M21 12a9 9 0 0 1-9 9m9-9a9 9 0 0 0-9-9m9 9H3m9 9a9 9 0 0 1-9-9m9 9c1.657 0 3-4.03 3-9s-1.343-9-3-9m0 18c-1.657 0-3-4.03-3-9s1.343-9 3-9m-9 9a9 9 0 0 1 9-9"/>
+                        <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4" />
+                        <polyline points="7 10 12 15 17 10" />
+                        <line x1="12" y1="15" x2="12" y2="3" />
                     </svg>
                 </button>
             </div>
@@ -57,24 +62,24 @@
         <nav class="nav-tabs">
             <button class="nav-tab active" data-tab="add">
                 <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                    <circle cx="12" cy="12" r="10"/>
-                    <line x1="12" y1="8" x2="12" y2="16"/>
-                    <line x1="8" y1="12" x2="16" y2="12"/>
+                    <circle cx="12" cy="12" r="10" />
+                    <line x1="12" y1="8" x2="12" y2="16" />
+                    <line x1="8" y1="12" x2="16" y2="12" />
                 </svg>
                 <span>Add</span>
             </button>
             <button class="nav-tab" data-tab="history">
                 <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                    <path d="M12 8v4l3 3"/>
-                    <circle cx="12" cy="12" r="10"/>
+                    <path d="M12 8v4l3 3" />
+                    <circle cx="12" cy="12" r="10" />
                 </svg>
                 <span>History</span>
             </button>
             <button class="nav-tab" data-tab="stats">
                 <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                    <path d="M18 20V10"/>
-                    <path d="M12 20V4"/>
-                    <path d="M6 20v-6"/>
+                    <path d="M18 20V10" />
+                    <path d="M12 20V4" />
+                    <path d="M6 20v-6" />
                 </svg>
                 <span>Stats</span>
             </button>
@@ -94,7 +99,7 @@
 
                 <form id="expenseForm" class="expense-form card">
                     <h2 class="form-title">Add New Expense</h2>
-                    
+
                     <div class="form-group">
                         <label for="amount">Amount (Rp)</label>
                         <div class="input-wrapper amount-input">
@@ -144,7 +149,8 @@
 
                     <div class="form-group">
                         <label for="description">Description</label>
-                        <input type="text" id="description" name="description" placeholder="What did you spend on?" maxlength="100">
+                        <input type="text" id="description" name="description" placeholder="What did you spend on?"
+                            maxlength="100">
                     </div>
 
                     <div class="form-group">
@@ -154,9 +160,10 @@
 
                     <button type="submit" class="submit-btn">
                         <span>Add Expense</span>
-                        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                            <path d="M5 12h14"/>
-                            <path d="m12 5 7 7-7 7"/>
+                        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+                            stroke-width="2">
+                            <path d="M5 12h14" />
+                            <path d="m12 5 7 7-7 7" />
                         </svg>
                     </button>
                 </form>
@@ -248,28 +255,35 @@
         <span id="toastMessage"></span>
     </div>
 
-    <!-- Sync Modal -->
-    <div id="syncModal" class="modal hidden">
+    <!-- Export Modal -->
+    <div id="exportModal" class="modal hidden">
         <div class="modal-content">
             <div class="modal-header">
-                <h3>Google Sheets Sync</h3>
-                <button id="closeSyncModal" class="modal-close">&times;</button>
+                <h3>Export & Backup</h3>
+                <button id="closeExportModal" class="modal-close">&times;</button>
             </div>
             <div class="modal-body">
-                <p>To sync your expenses to Google Sheets:</p>
-                <ol>
-                    <li>Create a Google Sheet</li>
-                    <li>Go to Extensions → Apps Script</li>
-                    <li>Paste the script from the docs</li>
-                    <li>Deploy as Web App</li>
-                    <li>Enter your Web App URL below</li>
-                </ol>
-                <div class="form-group">
-                    <label for="sheetsUrl">Web App URL</label>
-                    <input type="url" id="sheetsUrl" placeholder="https://script.google.com/...">
+                <p>Download your expense data as a CSV file. You can open this file in Excel or Google Sheets.</p>
+
+                <div class="export-options">
+                    <div class="stat-card" style="margin-bottom: 20px;">
+                        <div class="stat-icon">📊</div>
+                        <div class="stat-info">
+                            <span class="stat-label">Total Transactions</span>
+                            <span class="stat-value" id="exportTotal">0</span>
+                        </div>
+                    </div>
                 </div>
-                <button id="saveSheetsUrl" class="submit-btn">Save & Test Connection</button>
-                <div id="syncStatus" class="sync-status hidden"></div>
+
+                <button id="downloadCsvBtn" class="submit-btn">
+                    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"
+                        style="margin-right: 8px;">
+                        <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4" />
+                        <polyline points="7 10 12 15 17 10" />
+                        <line x1="12" y1="15" x2="12" y2="3" />
+                    </svg>
+                    Download CSV
+                </button>
             </div>
         </div>
     </div>
@@ -293,4 +307,5 @@
 
     <script src="app.js"></script>
 </body>
+
 </html>

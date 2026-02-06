@@ -4,8 +4,7 @@ const APP_STATE = {
     selectedCategory: null,
     deleteExpenseId: null,
     categoryChart: null,
-    trendChart: null,
-    sheetsUrl: localStorage.getItem('sheetsUrl') || ''
+    trendChart: null
 };
 
 // Category configuration
@@ -80,10 +79,10 @@ const $$ = (selector) => document.querySelectorAll(selector);
 const showToast = (message, type = 'success') => {
     const toast = $('#toast');
     const toastMessage = $('#toastMessage');
-    
+
     toast.className = 'toast show ' + type;
     toastMessage.textContent = message;
-    
+
     setTimeout(() => {
         toast.classList.remove('show');
     }, 3000);
@@ -92,21 +91,21 @@ const showToast = (message, type = 'success') => {
 // ==================== Tab Navigation ====================
 const initTabs = () => {
     const tabs = $$('.nav-tab');
-    
+
     tabs.forEach(tab => {
         tab.addEventListener('click', () => {
             const tabId = tab.dataset.tab;
-            
+
             // Update active tab
             tabs.forEach(t => t.classList.remove('active'));
             tab.classList.add('active');
-            
+
             // Show corresponding content
             $$('.tab-content').forEach(content => {
                 content.classList.remove('active');
             });
             $(`#${tabId}Tab`).classList.add('active');
-            
+
             // Refresh data when switching tabs
             if (tabId === 'history') {
                 renderHistory();
@@ -121,7 +120,7 @@ const initTabs = () => {
 const initCategorySelection = () => {
     const categoryBtns = $$('.category-btn');
     const categoryInput = $('#category');
-    
+
     categoryBtns.forEach(btn => {
         btn.addEventListener('click', () => {
             categoryBtns.forEach(b => b.classList.remove('selected'));
@@ -136,28 +135,28 @@ const initCategorySelection = () => {
 const initForm = () => {
     const form = $('#expenseForm');
     const dateInput = $('#date');
-    
+
     // Set default date to today
     dateInput.value = getToday();
-    
+
     form.addEventListener('submit', (e) => {
         e.preventDefault();
-        
+
         const amount = parseFloat($('#amount').value);
         const category = $('#category').value;
         const description = $('#description').value.trim() || getCategoryName(category);
         const date = $('#date').value;
-        
+
         if (!amount || amount <= 0) {
             showToast('Please enter a valid amount', 'error');
             return;
         }
-        
+
         if (!category) {
             showToast('Please select a category', 'error');
             return;
         }
-        
+
         const expense = {
             id: generateId(),
             amount,
@@ -166,25 +165,20 @@ const initForm = () => {
             date,
             createdAt: new Date().toISOString()
         };
-        
+
         APP_STATE.expenses.unshift(expense);
         saveExpenses();
-        
+
         // Reset form
         form.reset();
         dateInput.value = getToday();
         $$('.category-btn').forEach(b => b.classList.remove('selected'));
         APP_STATE.selectedCategory = null;
         $('#category').value = '';
-        
+
         // Update UI
         updateTodayTotal();
         showToast('Expense added successfully! 💰');
-        
-        // Sync to Google Sheets if configured
-        if (APP_STATE.sheetsUrl) {
-            syncToSheets(expense);
-        }
     });
 };
 
@@ -197,7 +191,7 @@ const updateTodayTotal = () => {
     const today = getToday();
     const todayExpenses = APP_STATE.expenses.filter(e => e.date === today);
     const total = todayExpenses.reduce((sum, e) => sum + e.amount, 0);
-    
+
     $('#todayTotal').textContent = formatCurrency(total);
     $('#todayDate').textContent = formatDateFull(today);
 };
@@ -207,10 +201,10 @@ const renderHistory = () => {
     const filter = $('#historyFilter').value;
     const historyList = $('#historyList');
     const emptyState = $('#emptyHistory');
-    
+
     let filteredExpenses = [...APP_STATE.expenses];
     const today = new Date();
-    
+
     switch (filter) {
         case 'today':
             filteredExpenses = filteredExpenses.filter(e => e.date === getToday());
@@ -225,18 +219,18 @@ const renderHistory = () => {
             filteredExpenses = filteredExpenses.filter(e => new Date(e.date) >= monthStart);
             break;
     }
-    
+
     // Sort by date (newest first)
     filteredExpenses.sort((a, b) => new Date(b.date) - new Date(a.date));
-    
+
     if (filteredExpenses.length === 0) {
         historyList.innerHTML = '';
         emptyState.classList.remove('hidden');
         return;
     }
-    
+
     emptyState.classList.add('hidden');
-    
+
     // Group by date
     const groupedExpenses = {};
     filteredExpenses.forEach(expense => {
@@ -245,14 +239,14 @@ const renderHistory = () => {
         }
         groupedExpenses[expense.date].push(expense);
     });
-    
+
     historyList.innerHTML = Object.entries(groupedExpenses).map(([date, expenses]) => `
         <div class="date-group">
             <div class="date-header">${formatDate(date)}</div>
             ${expenses.map(expense => createExpenseItem(expense)).join('')}
         </div>
     `).join('');
-    
+
     // Add delete event listeners
     $$('.expense-delete').forEach(btn => {
         btn.addEventListener('click', (e) => {
@@ -292,7 +286,7 @@ const renderStats = () => {
     const today = new Date();
     let filteredExpenses = [...APP_STATE.expenses];
     let daysInPeriod = 7;
-    
+
     switch (period) {
         case 'week':
             const weekAgo = new Date(today);
@@ -311,24 +305,24 @@ const renderStats = () => {
             daysInPeriod = Math.ceil((today - yearStart) / (1000 * 60 * 60 * 24));
             break;
     }
-    
+
     // Calculate stats
     const totalSpent = filteredExpenses.reduce((sum, e) => sum + e.amount, 0);
     const dailyAvg = daysInPeriod > 0 ? totalSpent / daysInPeriod : 0;
-    
+
     // Find highest day
     const dailyTotals = {};
     filteredExpenses.forEach(e => {
         dailyTotals[e.date] = (dailyTotals[e.date] || 0) + e.amount;
     });
     const highestDay = Math.max(...Object.values(dailyTotals), 0);
-    
+
     // Update stat cards
     $('#totalSpent').textContent = formatCurrency(totalSpent);
     $('#dailyAvg').textContent = formatCurrency(dailyAvg);
     $('#highestDay').textContent = formatCurrency(highestDay);
     $('#totalTransactions').textContent = filteredExpenses.length;
-    
+
     // Render charts
     renderCategoryChart(filteredExpenses);
     renderTrendChart(filteredExpenses, period);
@@ -336,21 +330,21 @@ const renderStats = () => {
 
 const renderCategoryChart = (expenses) => {
     const ctx = $('#categoryChart').getContext('2d');
-    
+
     // Calculate totals by category
     const categoryTotals = {};
     expenses.forEach(e => {
         categoryTotals[e.category] = (categoryTotals[e.category] || 0) + e.amount;
     });
-    
+
     const labels = Object.keys(categoryTotals).map(c => getCategoryName(c));
     const data = Object.values(categoryTotals);
     const colors = Object.keys(categoryTotals).map(c => CATEGORIES[c]?.color || '#95a5a6');
-    
+
     if (APP_STATE.categoryChart) {
         APP_STATE.categoryChart.destroy();
     }
-    
+
     APP_STATE.categoryChart = new Chart(ctx, {
         type: 'doughnut',
         data: {
@@ -384,16 +378,16 @@ const renderCategoryChart = (expenses) => {
 
 const renderTrendChart = (expenses, period) => {
     const ctx = $('#trendChart').getContext('2d');
-    
+
     // Get date range
     const today = new Date();
     let days = 7;
     if (period === 'month') days = new Date(today.getFullYear(), today.getMonth() + 1, 0).getDate();
     if (period === 'year') days = 12; // Show monthly for year
-    
+
     const labels = [];
     const data = [];
-    
+
     if (period === 'year') {
         // Monthly data for year view
         for (let i = 0; i < 12; i++) {
@@ -401,7 +395,7 @@ const renderTrendChart = (expenses, period) => {
             const monthEnd = new Date(today.getFullYear(), i + 1, 0);
             const monthName = monthStart.toLocaleDateString('id-ID', { month: 'short' });
             labels.push(monthName);
-            
+
             const monthTotal = expenses
                 .filter(e => {
                     const d = new Date(e.date);
@@ -416,20 +410,20 @@ const renderTrendChart = (expenses, period) => {
             const date = new Date(today);
             date.setDate(date.getDate() - i);
             const dateStr = date.toISOString().split('T')[0];
-            
+
             labels.push(date.toLocaleDateString('id-ID', { day: 'numeric', month: 'short' }));
-            
+
             const dayTotal = expenses
                 .filter(e => e.date === dateStr)
                 .reduce((sum, e) => sum + e.amount, 0);
             data.push(dayTotal);
         }
     }
-    
+
     if (APP_STATE.trendChart) {
         APP_STATE.trendChart.destroy();
     }
-    
+
     APP_STATE.trendChart = new Chart(ctx, {
         type: 'line',
         data: {
@@ -475,18 +469,18 @@ const initDeleteModal = () => {
     const closeBtn = $('#closeDeleteModal');
     const cancelBtn = $('#cancelDelete');
     const confirmBtn = $('#confirmDelete');
-    
+
     const closeModal = () => {
         modal.classList.add('hidden');
         APP_STATE.deleteExpenseId = null;
     };
-    
+
     closeBtn.addEventListener('click', closeModal);
     cancelBtn.addEventListener('click', closeModal);
     modal.addEventListener('click', (e) => {
         if (e.target === modal) closeModal();
     });
-    
+
     confirmBtn.addEventListener('click', () => {
         if (APP_STATE.deleteExpenseId) {
             APP_STATE.expenses = APP_STATE.expenses.filter(e => e.id !== APP_STATE.deleteExpenseId);
@@ -499,77 +493,68 @@ const initDeleteModal = () => {
     });
 };
 
-// ==================== Google Sheets Sync ====================
-const initSyncModal = () => {
-    const syncBtn = $('#syncBtn');
-    const modal = $('#syncModal');
-    const closeBtn = $('#closeSyncModal');
-    const saveBtn = $('#saveSheetsUrl');
-    const urlInput = $('#sheetsUrl');
-    
-    urlInput.value = APP_STATE.sheetsUrl;
-    
-    syncBtn.addEventListener('click', () => {
+// ==================== CSV Export ====================
+const initExportModal = () => {
+    const exportBtn = $('#exportBtn');
+    const modal = $('#exportModal');
+    const closeBtn = $('#closeExportModal');
+    const downloadBtn = $('#downloadCsvBtn');
+
+    exportBtn.addEventListener('click', () => {
+        $('#exportTotal').textContent = APP_STATE.expenses.length;
         modal.classList.remove('hidden');
     });
-    
+
     closeBtn.addEventListener('click', () => {
         modal.classList.add('hidden');
     });
-    
+
     modal.addEventListener('click', (e) => {
         if (e.target === modal) modal.classList.add('hidden');
     });
-    
-    saveBtn.addEventListener('click', async () => {
-        const url = urlInput.value.trim();
-        const statusDiv = $('#syncStatus');
-        
-        if (!url) {
-            statusDiv.className = 'sync-status error';
-            statusDiv.classList.remove('hidden');
-            statusDiv.textContent = 'Please enter a valid URL';
-            return;
-        }
-        
-        APP_STATE.sheetsUrl = url;
-        localStorage.setItem('sheetsUrl', url);
-        
-        statusDiv.className = 'sync-status success';
-        statusDiv.classList.remove('hidden');
-        statusDiv.textContent = '✓ URL saved! Expenses will sync automatically.';
-        
-        setTimeout(() => {
-            modal.classList.add('hidden');
-            statusDiv.classList.add('hidden');
-        }, 2000);
+
+    downloadBtn.addEventListener('click', () => {
+        exportToCSV();
     });
 };
 
-const syncToSheets = async (expense) => {
-    if (!APP_STATE.sheetsUrl) return;
-    
-    try {
-        const syncBtn = $('#syncBtn');
-        syncBtn.classList.add('syncing');
-        
-        await fetch(APP_STATE.sheetsUrl, {
-            method: 'POST',
-            mode: 'no-cors',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({
-                date: expense.date,
-                amount: expense.amount,
-                category: expense.category,
-                description: expense.description
-            })
-        });
-        
-        syncBtn.classList.remove('syncing');
-    } catch (error) {
-        console.error('Sync failed:', error);
+const exportToCSV = () => {
+    if (APP_STATE.expenses.length === 0) {
+        showToast('No expenses to export', 'error');
+        return;
     }
+
+    const headers = ['Date', 'Amount', 'Category', 'Description'];
+    const rows = APP_STATE.expenses.map(e => [
+        e.date,
+        e.amount,
+        e.category,
+        `"${e.description.replace(/"/g, '""')}"`
+    ]);
+
+    const csvContent = [
+        headers.join(','),
+        ...rows.map(r => r.join(','))
+    ].join('\n');
+
+    const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement('a');
+
+    const timestamp = new Date().toISOString().split('T')[0];
+    link.setAttribute('href', url);
+    link.setAttribute('download', `SpendWise_Export_${timestamp}.csv`);
+    link.style.visibility = 'hidden';
+
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+
+    showToast('Export successful! 📥');
+    $('#exportModal').classList.add('hidden');
 };
+
+
 
 // ==================== Filter Event Listeners ====================
 const initFilters = () => {
@@ -584,18 +569,18 @@ const initApp = () => {
         $('#splash').classList.add('hidden');
         $('#app').classList.remove('hidden');
     }, 2000);
-    
+
     // Load data
     loadExpenses();
-    
+
     // Initialize components
     initTabs();
     initCategorySelection();
     initForm();
     initDeleteModal();
-    initSyncModal();
+    initExportModal();
     initFilters();
-    
+
     // Initial render
     updateTodayTotal();
 };

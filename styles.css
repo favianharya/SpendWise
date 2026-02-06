@@ -234,6 +234,45 @@ a {
     }
 }
 
+.install-btn {
+    display: flex;
+    align-items: center;
+    gap: var(--spacing-sm);
+    background: var(--accent-gradient);
+    padding: var(--spacing-sm) var(--spacing-md);
+    border-radius: var(--radius-md);
+    color: var(--text-primary);
+    font-size: 0.8125rem;
+    font-weight: 600;
+    margin-right: var(--spacing-sm);
+    box-shadow: var(--shadow-glow);
+    transition: all var(--transition-fast);
+}
+
+.install-btn:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 4px 15px var(--accent-glow);
+}
+
+.install-btn:active {
+    transform: translateY(0);
+}
+
+.install-btn svg {
+    width: 16px;
+    height: 16px;
+}
+
+@media (max-width: 360px) {
+    .install-btn span {
+        display: none;
+    }
+
+    .install-btn {
+        padding: var(--spacing-sm);
+    }
+}
+
 .nav-tabs {
     display: flex;
     background: var(--bg-secondary);
