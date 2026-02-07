@@ -1592,9 +1592,22 @@ const generateSyncQR = () => {
     const displayArea = $('#qrDisplayArea');
     const scannerArea = $('#qrScannerArea');
 
+    // Only sync expenses from the last 30 days via QR to keep it within size limits
+    const thirtyDaysAgo = new Date();
+    thirtyDaysAgo.setDate(thirtyDaysAgo.getDate() - 30);
+    thirtyDaysAgo.setHours(0, 0, 0, 0);
+
+    const recentExpenses = APP_STATE.expenses.filter(e => {
+        try {
+            return parseLocalDate(e.date) >= thirtyDaysAgo;
+        } catch (err) {
+            return true; // Keep if date is weird
+        }
+    });
+
     // Super aggressive compression: Convert objects to arrays to remove key names
     // Expense format: [id, date, amount, category, description]
-    const minExpenses = APP_STATE.expenses.map(e => [
+    const minExpenses = recentExpenses.map(e => [
         e.id,
         e.date,
         e.amount,
@@ -1620,7 +1633,8 @@ const generateSyncQR = () => {
         e: minExpenses,
         a: minAssets,
         m: APP_STATE.monthlySettings,
-        c: APP_STATE.categories
+        c: APP_STATE.categories,
+        mode: "partial" // Flag to indicate this is recent data only
     };
 
     const jsonStr = JSON.stringify(syncData);
