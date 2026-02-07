@@ -718,19 +718,19 @@ const renderTrendChart = (expenses, period) => {
 
     if (period === 'year' || period === 'all') {
         const sortedExpenses = [...expenses].sort((a, b) => new Date(a.date) - new Date(b.date));
-
         let startYear, startMonth, endYear, endMonth;
 
-        if (period === 'all' && sortedExpenses.length > 0) {
-            const firstDate = new Date(sortedExpenses[0].date);
-            const lastDate = today;
+        if (period === 'all' && expenses.length > 0) {
+            // Find earliest data point across all expenses
+            const allDates = expenses.map(e => new Date(e.date));
+            const firstDateData = new Date(Math.min(...allDates));
 
-            startYear = firstDate.getFullYear();
-            startMonth = firstDate.getMonth();
-            endYear = lastDate.getFullYear();
-            endMonth = lastDate.getMonth();
+            startYear = firstDateData.getFullYear();
+            startMonth = firstDateData.getMonth();
+            endYear = today.getFullYear();
+            endMonth = today.getMonth();
         } else {
-            // Default: Current Year (Jan to now)
+            // "This Year": Always Jan to current month
             startYear = today.getFullYear();
             startMonth = 0;
             endYear = today.getFullYear();
