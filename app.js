@@ -537,24 +537,27 @@ const renderStats = () => {
         case 'week':
             const weekAgo = new Date(today);
             weekAgo.setDate(weekAgo.getDate() - 7);
-            filteredExpenses = filteredExpenses.filter(e => new Date(e.date) >= weekAgo);
+            weekAgo.setHours(0, 0, 0, 0);
+            filteredExpenses = filteredExpenses.filter(e => parseLocalDate(e.date) >= weekAgo);
             daysInPeriod = 7;
             break;
         case 'month':
             const monthStart = new Date(today.getFullYear(), today.getMonth(), 1);
-            filteredExpenses = filteredExpenses.filter(e => new Date(e.date) >= monthStart);
+            filteredExpenses = filteredExpenses.filter(e => parseLocalDate(e.date) >= monthStart);
             daysInPeriod = today.getDate();
             break;
         case 'year':
             const yearStart = new Date(today.getFullYear(), 0, 1);
-            filteredExpenses = filteredExpenses.filter(e => new Date(e.date) >= yearStart);
+            filteredExpenses = filteredExpenses.filter(e => parseLocalDate(e.date) >= yearStart);
             daysInPeriod = Math.ceil((today - yearStart) / (1000 * 60 * 60 * 24));
             break;
         case 'all':
-            filteredExpenses = [...APP_STATE.expenses]; // Reset to full list to be sure
+            filteredExpenses = [...APP_STATE.expenses];
             if (filteredExpenses.length > 0) {
-                const oldestDate = parseLocalDate(Math.min(...filteredExpenses.map(e => parseLocalDate(e.date).getTime())));
-                daysInPeriod = Math.max(1, Math.ceil((today - parseLocalDate(Math.min(...filteredExpenses.map(e => parseLocalDate(e.date).getTime())))) / (1000 * 60 * 60 * 24)));
+                const allTimestamps = filteredExpenses.map(e => parseLocalDate(e.date).getTime());
+                const oldestTimestamp = Math.min(...allTimestamps);
+                const oldestDate = new Date(oldestTimestamp);
+                daysInPeriod = Math.max(1, Math.ceil((today - oldestDate) / (1000 * 60 * 60 * 24)));
             } else {
                 daysInPeriod = 1;
             }
@@ -563,14 +566,12 @@ const renderStats = () => {
             const startStr = $('#statsStartDate').value;
             const endStr = $('#statsEndDate').value;
             if (startStr && endStr) {
-                const start = new Date(startStr);
-                const end = new Date(endStr);
-                // Reset times for accurate day count
-                start.setHours(0, 0, 0, 0);
+                const start = parseLocalDate(startStr);
+                const end = parseLocalDate(endStr);
                 end.setHours(23, 59, 59, 999);
 
                 filteredExpenses = filteredExpenses.filter(e => {
-                    const d = new Date(e.date);
+                    const d = parseLocalDate(e.date);
                     return d >= start && d <= end;
                 });
                 daysInPeriod = Math.max(1, Math.ceil((end - start) / (1000 * 60 * 60 * 24)));
