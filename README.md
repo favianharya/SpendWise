@@ -2,12 +2,12 @@
 
 A beautiful Progressive Web App (PWA) for tracking daily expenses with 100% privacy. All data is stored locally on your device.
 
-**Current Version: `v62` (February 2026)**
+**Current Version: `v64` (February 2026)**
 
-## 🚀 Recent Updates (v62)
-- 🛡️ **Fuzzy Duplicate Detection**: CSV imports now detect duplicates even if the file has no IDs. It compares the date, amount, and category to ensure you never get double entries, even from old backups.
-- 💾 **Smart CSV Import/Export**: CSV files now include unique IDs for 100% precise syncing.
-- 📲 **Differential QR Sync**: Optimized for speed by syncing only recent data.
+## 🚀 Recent Updates (v64)
+- 🎯 **Integrated Budget Alerts**: Budget warnings and over-limit notifications are now displayed directly inside each budget card, providing immediate context where you need it most.
+- 🛡️ **Fuzzy Duplicate Detection**: CSV imports intelligently prevent double entries even for old backups.
+- 💾 **Smart CSV Import/Export**: Unique IDs ensure 100% precise syncing across devices.
 - 🗑️ **Bulk History Deletion**: Quick "Clear Day" button in the history tab.
 - ⚡ **Instant UI Sync**: Unified refresh engine for immediate data reflection.
 - 📱 **Mobile-First Navigation**: Fixed bottom navigation bar for better reachability on mobile devices.

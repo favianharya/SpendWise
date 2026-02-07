@@ -943,7 +943,6 @@ const renderAssetAllocationChart = () => {
     });
 };
 // ==================== Budget Management ====================
-// ==================== Budget Management ====================
 const renderBudget = () => {
     const list = $('#budgetGroupsList');
     const incomeInput = $('#monthlyIncome');
@@ -1059,7 +1058,6 @@ const renderBudget = () => {
     });
 
     updateBudgetSummary();
-    renderBudgetAlerts();
 };
 
 const createGroupProgress = (group) => {
@@ -1088,7 +1086,23 @@ const createGroupProgress = (group) => {
     const percentage = Math.min((spent / limit) * 100, 100);
     const statusClass = percentage >= 100 ? 'danger' : percentage >= 80 ? 'warning' : '';
 
+    let alertHtml = '';
+    if (percentage >= 100) {
+        alertHtml = `
+            <div class="budget-alert-inline danger">
+                <span>🚨 Exceeded by ${formatCurrency(spent - limit)}</span>
+            </div>
+        `;
+    } else if (percentage >= 80) {
+        alertHtml = `
+            <div class="budget-alert-inline warning">
+                <span>⚠️ Near limit (${Math.round(percentage)}%)</span>
+            </div>
+        `;
+    }
+
     return `
+        ${alertHtml}
         <div class="budget-progress-container" style="height: 8px; background: rgba(255,255,255,0.05); border-radius: 4px; overflow: hidden; margin-bottom: 6px;">
             <div class="budget-progress-bar ${statusClass}" style="width: ${percentage}%; height: 100%; transition: width 0.3s ease;"></div>
         </div>
@@ -1247,45 +1261,10 @@ const initBudgetForm = () => {
             saveBudgets();
             renderBudget();
             updateBudgetSummary();
-            renderBudgetAlerts();
             updateHomeBudgetStatus();
             showToast('Budget saved for ' + $('#budgetPeriod').textContent + '!');
         });
     }
-};
-
-const renderBudgetAlerts = () => {
-    const container = $('#budgetAlerts');
-    if (!container) return;
-    container.innerHTML = '';
-
-    const periodKey = `${APP_STATE.viewYear}-${(APP_STATE.viewMonth + 1).toString().padStart(2, '0')}`;
-    const monthlyData = APP_STATE.monthlySettings[periodKey] || { income: APP_STATE.monthlyIncome, limits: {} };
-
-    const monthStart = new Date(APP_STATE.viewYear, APP_STATE.viewMonth, 1);
-    const monthEnd = new Date(APP_STATE.viewYear, APP_STATE.viewMonth + 1, 0);
-
-    APP_STATE.budgetGroups.forEach(group => {
-        const limit = monthlyData.limits[group.id] ?? group.limit ?? 0;
-        if (limit <= 0) return;
-
-        const spent = APP_STATE.expenses
-            .filter(e => {
-                const d = new Date(e.date);
-                return group.categoryIds.includes(e.category) && d >= monthStart && d <= monthEnd;
-            })
-            .reduce((sum, e) => sum + e.amount, 0);
-
-        const percent = (spent / limit) * 100;
-
-        if (percent >= 100) {
-            createAlertElement(container, '🚨', `Exceeded: ${group.name}`, `Spent ${formatCurrency(spent)} (${formatCurrency(spent - limit)} over limit).`, 'danger');
-        } else if (percent >= 80) {
-            createAlertElement(container, '⚠️', `Near Limit: ${group.name}`, `${Math.round(percent)}% used of ${formatCurrency(limit)}.`, 'warning');
-        }
-    });
-
-
 };
 
 const createAlertElement = (container, icon, title, message, type) => {
