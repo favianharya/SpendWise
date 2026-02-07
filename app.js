@@ -1498,11 +1498,11 @@ const generateSyncQR = () => {
     }
 
     QRCode.toCanvas(canvas, jsonStr, {
-        width: 320, // Slightly larger for easier scanning
-        margin: 2,
-        errorCorrectionLevel: 'M', // Medium error correction for robustness
+        width: 320,
+        margin: 4, // More breathing room for the white border
+        errorCorrectionLevel: 'L', // Low correction makes the dots larger and easier to scan
         color: {
-            dark: '#000000', // Solid black for maximum contrast
+            dark: '#000000',
             light: '#ffffff'
         }
     }, (error) => {
@@ -1549,7 +1549,11 @@ const stopQRScanner = async () => {
 };
 
 const onScanSuccess = (decodedText) => {
+    // Basic verification before stopping
+    if (!decodedText || !decodedText.startsWith('{')) return;
+
     stopQRScanner();
+    console.log('QR Code Scanned, length:', decodedText.length);
 
     try {
         const incomingData = JSON.parse(decodedText);
@@ -1562,8 +1566,9 @@ const onScanSuccess = (decodedText) => {
             mergeSyncData(incomingData);
         }
     } catch (e) {
-        console.error(e);
-        showToast('Invalid or corrupted QR data', 'error');
+        console.error('Parse Error:', e);
+        console.log('Raw content:', decodedText);
+        showToast('Invalid or corrupted QR data. Try scanning again closer.', 'error');
     }
 };
 
