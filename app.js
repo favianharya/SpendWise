@@ -756,7 +756,7 @@ const renderTrendChart = (expenses, period) => {
                 const monthStart = new Date(y, m, 1);
                 const monthEnd = new Date(y, m + 1, 0);
                 const label = period === 'all'
-                    ? monthStart.toLocaleDateString('id-ID', { month: 'short', year: '2-digit' })
+                    ? monthStart.toLocaleDateString('id-ID', { month: 'short', year: 'numeric' })
                     : monthStart.toLocaleDateString('id-ID', { month: 'short' });
 
                 labels.push(label);
@@ -764,7 +764,7 @@ const renderTrendChart = (expenses, period) => {
                 const monthTotal = expenses
                     .filter(e => {
                         const d = parseLocalDate(e.date);
-                        return d >= monthStart && d <= monthEnd;
+                        return d.getFullYear() === y && d.getMonth() === m;
                     })
                     .reduce((sum, e) => sum + e.amount, 0);
                 data.push(monthTotal);
