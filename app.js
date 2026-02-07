@@ -1483,10 +1483,10 @@ const generateSyncQR = () => {
     const syncData = {
         v: 1, // Version
         t: Date.now(),
-        expenses: APP_STATE.expenses,
-        assets: APP_STATE.assets,
-        monthlySettings: APP_STATE.monthlySettings,
-        categories: APP_STATE.categories
+        e: APP_STATE.expenses, // Minified keys for smaller QR
+        a: APP_STATE.assets,
+        m: APP_STATE.monthlySettings,
+        c: APP_STATE.categories
     };
 
     const jsonStr = JSON.stringify(syncData);
@@ -1498,10 +1498,11 @@ const generateSyncQR = () => {
     }
 
     QRCode.toCanvas(canvas, jsonStr, {
-        width: 256,
+        width: 320, // Slightly larger for easier scanning
         margin: 2,
+        errorCorrectionLevel: 'M', // Medium error correction for robustness
         color: {
-            dark: '#1a1a2e',
+            dark: '#000000', // Solid black for maximum contrast
             light: '#ffffff'
         }
     }, (error) => {
@@ -1553,11 +1554,11 @@ const onScanSuccess = (decodedText) => {
     try {
         const incomingData = JSON.parse(decodedText);
 
-        if (!incomingData.expenses || !incomingData.assets) {
-            throw new Error('Invalid SpendWise QR data');
-        }
+        // Handle both old and new (minified) data formats
+        const expenses = incomingData.e || incomingData.expenses || [];
+        const assets = incomingData.a || incomingData.assets || [];
 
-        if (confirm(`Found ${incomingData.expenses.length} expenses and ${incomingData.assets.length} assets. Merge into this device?`)) {
+        if (confirm(`Found ${expenses.length} expenses and ${assets.length} assets. Merge into this device?`)) {
             mergeSyncData(incomingData);
         }
     } catch (e) {
@@ -1567,24 +1568,28 @@ const onScanSuccess = (decodedText) => {
 };
 
 const mergeSyncData = (data) => {
+    const expenses = data.e || data.expenses || [];
+    const assets = data.a || data.assets || [];
+    const monthlySettings = data.m || data.monthlySettings || {};
+    const categories = data.c || data.categories || {};
+
     // 1. Merge Expenses (checking for duplicates by ID)
     const existingExpenseIds = new Set(APP_STATE.expenses.map(e => e.id));
-    const newExpenses = data.expenses.filter(e => !existingExpenseIds.has(e.id));
+    const newExpenses = expenses.filter(e => !existingExpenseIds.has(e.id));
     APP_STATE.expenses = [...APP_STATE.expenses, ...newExpenses];
 
     // 2. Merge Assets
     const existingAssetIds = new Set(APP_STATE.assets.map(a => a.id));
-    const newAssets = data.assets.filter(a => !existingAssetIds.has(a.id));
+    const newAssets = assets.filter(a => !existingAssetIds.has(a.id));
     APP_STATE.assets = [...APP_STATE.assets, ...newAssets];
 
     // 3. Merge Monthly Settings (Budgets & Income)
-    // We prioritize newer timestamps if we had them, but for now we'll just merge unique keys
-    Object.keys(data.monthlySettings).forEach(key => {
+    Object.keys(monthlySettings).forEach(key => {
         if (!APP_STATE.monthlySettings[key]) {
-            APP_STATE.monthlySettings[key] = data.monthlySettings[key];
+            APP_STATE.monthlySettings[key] = monthlySettings[key];
         } else {
             // If exists, merge nested limits
-            const incomingLimits = data.monthlySettings[key].limits || {};
+            const incomingLimits = monthlySettings[key].limits || {};
             APP_STATE.monthlySettings[key].limits = {
                 ...APP_STATE.monthlySettings[key].limits,
                 ...incomingLimits
@@ -1593,7 +1598,7 @@ const mergeSyncData = (data) => {
     });
 
     // 4. Merge Categories
-    APP_STATE.categories = { ...data.categories, ...APP_STATE.categories };
+    APP_STATE.categories = { ...categories, ...APP_STATE.categories };
 
     // Save and Refresh
     saveExpenses();
