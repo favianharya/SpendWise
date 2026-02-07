@@ -717,17 +717,31 @@ const renderTrendChart = (expenses, period) => {
     const today = new Date();
 
     if (period === 'year' || period === 'all') {
-        // Monthly data for year or all-time view
-        const currentYear = today.getFullYear();
-        const startYear = period === 'all' && expenses.length > 0
-            ? new Date(Math.min(...expenses.map(e => new Date(e.date)))).getFullYear()
-            : currentYear;
+        const sortedExpenses = [...expenses].sort((a, b) => new Date(a.date) - new Date(b.date));
 
-        for (let y = startYear; y <= currentYear; y++) {
-            const startMonth = 0;
-            const endMonth = (y === currentYear) ? today.getMonth() : 11;
+        let startYear, startMonth, endYear, endMonth;
 
-            for (let m = startMonth; m <= endMonth; m++) {
+        if (period === 'all' && sortedExpenses.length > 0) {
+            const firstDate = new Date(sortedExpenses[0].date);
+            const lastDate = today;
+
+            startYear = firstDate.getFullYear();
+            startMonth = firstDate.getMonth();
+            endYear = lastDate.getFullYear();
+            endMonth = lastDate.getMonth();
+        } else {
+            // Default: Current Year (Jan to now)
+            startYear = today.getFullYear();
+            startMonth = 0;
+            endYear = today.getFullYear();
+            endMonth = today.getMonth();
+        }
+
+        for (let y = startYear; y <= endYear; y++) {
+            const mFrom = (y === startYear) ? startMonth : 0;
+            const mTo = (y === endYear) ? endMonth : 11;
+
+            for (let m = mFrom; m <= mTo; m++) {
                 const monthStart = new Date(y, m, 1);
                 const monthEnd = new Date(y, m + 1, 0);
                 const label = period === 'all'
