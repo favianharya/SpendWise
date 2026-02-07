@@ -1,4 +1,4 @@
-const CACHE_NAME = 'spendwise-v66';
+const CACHE_NAME = 'spendwise-v66-patch-2';
 const STATIC_ASSETS = [
     '/',
     '/index.html',

@@ -20,7 +20,9 @@ const APP_STATE = {
         silver: 0, // IDR per gram
         lastUpdated: null
     },
-    editingAssetId: null
+    editingAssetId: null,
+    statsMonth: new Date().getMonth(),
+    statsYear: new Date().getFullYear()
 };
 
 // Default static categories
@@ -152,6 +154,12 @@ const loadBudgets = () => {
         const activeBudgetData = getActiveBudgetData();
         APP_STATE.budgetGroups = activeBudgetData.groups;
         APP_STATE.monthlyIncome = activeBudgetData.income;
+
+        // Ensure stats dates are valid
+        if (isNaN(APP_STATE.statsMonth) || isNaN(APP_STATE.statsYear)) {
+            APP_STATE.statsMonth = today.getMonth();
+            APP_STATE.statsYear = today.getFullYear();
+        }
 
     } catch (e) {
         console.error('Error loading budgets:', e);
@@ -543,9 +551,22 @@ const renderStats = () => {
             daysInPeriod = 7;
             break;
         case 'month':
-            const monthStart = new Date(today.getFullYear(), today.getMonth(), 1);
-            filteredExpenses = filteredExpenses.filter(e => parseLocalDate(e.date) >= monthStart);
-            daysInPeriod = today.getDate();
+            // Update label for UI
+            const label = $('#statsPeriodLabel');
+            if (label) {
+                label.textContent = new Date(APP_STATE.statsYear, APP_STATE.statsMonth).toLocaleDateString('id-ID', { month: 'long', year: 'numeric' });
+            }
+
+            // Use the selected Stats Month/Year instead of just "Today"
+            const statMonthStart = new Date(APP_STATE.statsYear, APP_STATE.statsMonth, 1);
+            const statMonthEnd = new Date(APP_STATE.statsYear, APP_STATE.statsMonth + 1, 0); // Last day of that month
+            statMonthEnd.setHours(23, 59, 59, 999);
+
+            filteredExpenses = filteredExpenses.filter(e => {
+                const d = parseLocalDate(e.date);
+                return d >= statMonthStart && d <= statMonthEnd;
+            });
+            daysInPeriod = statMonthEnd.getDate();
             break;
         case 'year':
             const yearStart = new Date(today.getFullYear(), 0, 1);
@@ -911,10 +932,9 @@ const renderBudgetPerformanceChart = (filteredExpenses, period) => {
         return;
     }
 
-    // We compare filteredExpenses against the CURRENT month's budget settings
-    // This is most accurate for 'This Month' filter.
-    const today = new Date();
-    const periodKey = `${today.getFullYear()}-${(today.getMonth() + 1).toString().padStart(2, '0')}`;
+    // We compare filteredExpenses against the CURRENT stats month's budget settings
+    // This allows viewing historical budget performance.
+    const periodKey = `${APP_STATE.statsYear}-${(APP_STATE.statsMonth + 1).toString().padStart(2, '0')}`;
     const monthlyData = APP_STATE.monthlySettings[periodKey] || { income: 0, limits: {} };
 
     const labels = [];
@@ -2402,6 +2422,45 @@ const initFilters = () => {
                 customRange.classList.remove('hidden');
             } else {
                 customRange.classList.add('hidden');
+            }
+            // Show/hide month navigation
+            const monthNav = $('#statsMonthNav');
+            if (statsPeriod.value === 'month') {
+                if (monthNav) monthNav.classList.remove('hidden');
+                // Reset to current month when switching to month view
+                const today = new Date();
+                APP_STATE.statsMonth = today.getMonth();
+                APP_STATE.statsYear = today.getFullYear();
+            } else {
+                if (monthNav) monthNav.classList.add('hidden');
+            }
+            renderStats();
+        });
+    }
+
+    // Stats Month Navigation
+    const prevMonthBtn = $('#prevStatsMonth');
+    const nextMonthBtn = $('#nextStatsMonth');
+
+    if (prevMonthBtn) {
+        prevMonthBtn.addEventListener('click', (e) => {
+            e.preventDefault();
+            APP_STATE.statsMonth--;
+            if (APP_STATE.statsMonth < 0) {
+                APP_STATE.statsMonth = 11;
+                APP_STATE.statsYear--;
+            }
+            renderStats();
+        });
+    }
+
+    if (nextMonthBtn) {
+        nextMonthBtn.addEventListener('click', (e) => {
+            e.preventDefault();
+            APP_STATE.statsMonth++;
+            if (APP_STATE.statsMonth > 11) {
+                APP_STATE.statsMonth = 0;
+                APP_STATE.statsYear++;
             }
             renderStats();
         });
