@@ -551,9 +551,10 @@ const renderStats = () => {
             daysInPeriod = Math.ceil((today - yearStart) / (1000 * 60 * 60 * 24));
             break;
         case 'all':
+            filteredExpenses = [...APP_STATE.expenses]; // Reset to full list to be sure
             if (filteredExpenses.length > 0) {
-                const oldestDate = new Date(Math.min(...filteredExpenses.map(e => new Date(e.date))));
-                daysInPeriod = Math.max(1, Math.ceil((today - oldestDate) / (1000 * 60 * 60 * 24)));
+                const oldestDate = parseLocalDate(Math.min(...filteredExpenses.map(e => parseLocalDate(e.date).getTime())));
+                daysInPeriod = Math.max(1, Math.ceil((today - parseLocalDate(Math.min(...filteredExpenses.map(e => parseLocalDate(e.date).getTime())))) / (1000 * 60 * 60 * 24)));
             } else {
                 daysInPeriod = 1;
             }
@@ -726,13 +727,17 @@ const renderTrendChart = (expenses, period) => {
         const sortedExpenses = [...expenses].sort((a, b) => new Date(a.date) - new Date(b.date));
         let startYear, startMonth, endYear, endMonth;
 
-        if (period === 'all' && expenses.length > 0) {
-            // Find earliest data point across all expenses using local parsing
-            const allDates = expenses.map(e => parseLocalDate(e.date).getTime());
-            const firstDateData = new Date(Math.min(...allDates));
-
-            startYear = firstDateData.getFullYear();
-            startMonth = firstDateData.getMonth();
+        if (period === 'all') {
+            // ALWAYS look at the main database for 'all time' range to find true first interaction
+            const allDates = APP_STATE.expenses.map(e => parseLocalDate(e.date).getTime());
+            if (allDates.length > 0) {
+                const firstDateData = new Date(Math.min(...allDates));
+                startYear = firstDateData.getFullYear();
+                startMonth = firstDateData.getMonth();
+            } else {
+                startYear = today.getFullYear();
+                startMonth = today.getMonth();
+            }
             endYear = today.getFullYear();
             endMonth = today.getMonth();
         } else {
