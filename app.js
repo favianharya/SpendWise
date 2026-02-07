@@ -812,9 +812,13 @@ const renderTrendChart = (expenses, period) => {
         if (period === 'all') {
             titleEl.textContent = 'All Time Spending Trend';
         } else if (period === 'year') {
-            titleEl.textContent = 'Monthly Spending Trend';
+            titleEl.textContent = 'This Year Spending Trend';
+        } else if (period === 'month') {
+            titleEl.textContent = 'This Month Spending Trend';
+        } else if (period === 'week') {
+            titleEl.textContent = 'Weekly Spending Trend';
         } else {
-            titleEl.textContent = 'Daily Spending Trend';
+            titleEl.textContent = 'Custom Period Trend';
         }
     }
 
