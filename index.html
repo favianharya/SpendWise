@@ -48,18 +48,15 @@
                     <span class="logo-icon">💰</span>
                     <span class="logo-text">SpendWise</span>
                 </div>
-                <button id="exportBtn" class="sync-btn" title="Export to CSV">
-                    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                        <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4" />
-                        <polyline points="7 10 12 15 17 10" />
-                        <line x1="12" y1="15" x2="12" y2="3" />
-                    </svg>
-                </button>
             </div>
         </header>
 
         <!-- Navigation Tabs -->
         <nav class="nav-tabs">
+            <div class="sidebar-logo">
+                <span class="logo-icon">💰</span>
+                <span class="logo-text">SpendWise</span>
+            </div>
             <button class="nav-tab active" data-tab="add">
                 <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
                     <circle cx="12" cy="12" r="10" />
@@ -83,6 +80,22 @@
                 </svg>
                 <span>Stats</span>
             </button>
+            <button class="nav-tab" data-tab="budget">
+                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                    <path
+                        d="M19 7h-1V6a3 3 0 0 0-3-3H5a3 3 0 0 0-3 3v12a3 3 0 0 0 3 3h10a3 3 0 0 0 3-3v-1h1a2 2 0 0 0 2-2V9a2 2 0 0 0-2-2Z" />
+                    <circle cx="17" cy="12" r="1" />
+                </svg>
+                <span>Budget</span>
+            </button>
+            <button id="exportBtn" class="nav-tab nav-action" title="Export to CSV">
+                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                    <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4" />
+                    <polyline points="7 10 12 15 17 10" />
+                    <line x1="12" y1="15" x2="12" y2="3" />
+                </svg>
+                <span>Backup</span>
+            </button>
         </nav>
 
         <!-- Main Content -->
@@ -95,6 +108,16 @@
                         <span class="summary-date" id="todayDate"></span>
                     </div>
                     <div class="summary-amount" id="todayTotal">Rp 0</div>
+                </div>
+
+                <div id="homeBudgetCard" class="card budget-mini-card hidden">
+                    <div class="budget-mini-header">
+                        <span>Monthly Budget</span>
+                        <span id="homeBudgetPercent" class="budget-percent">0%</span>
+                    </div>
+                    <div class="budget-progress-container mini">
+                        <div id="homeBudgetBar" class="budget-progress-bar"></div>
+                    </div>
                 </div>
 
                 <form id="expenseForm" class="expense-form card">
@@ -111,38 +134,7 @@
                     <div class="form-group">
                         <label for="category">Category</label>
                         <div class="category-grid" id="categoryGrid">
-                            <button type="button" class="category-btn" data-category="food">
-                                <span class="category-icon">🍔</span>
-                                <span class="category-name">Food</span>
-                            </button>
-                            <button type="button" class="category-btn" data-category="transport">
-                                <span class="category-icon">🚗</span>
-                                <span class="category-name">Transport</span>
-                            </button>
-                            <button type="button" class="category-btn" data-category="shopping">
-                                <span class="category-icon">🛍️</span>
-                                <span class="category-name">Shopping</span>
-                            </button>
-                            <button type="button" class="category-btn" data-category="entertainment">
-                                <span class="category-icon">🎮</span>
-                                <span class="category-name">Fun</span>
-                            </button>
-                            <button type="button" class="category-btn" data-category="bills">
-                                <span class="category-icon">📄</span>
-                                <span class="category-name">Bills</span>
-                            </button>
-                            <button type="button" class="category-btn" data-category="health">
-                                <span class="category-icon">💊</span>
-                                <span class="category-name">Health</span>
-                            </button>
-                            <button type="button" class="category-btn" data-category="education">
-                                <span class="category-icon">📚</span>
-                                <span class="category-name">Education</span>
-                            </button>
-                            <button type="button" class="category-btn" data-category="other">
-                                <span class="category-icon">📦</span>
-                                <span class="category-name">Other</span>
-                            </button>
+                            <!-- Categories will be populated here by JS -->
                         </div>
                         <input type="hidden" id="category" name="category" required>
                     </div>
@@ -199,6 +191,7 @@
                         <option value="week">This Week</option>
                         <option value="month" selected>This Month</option>
                         <option value="year">This Year</option>
+                        <option value="all">All Time</option>
                     </select>
                 </div>
 
@@ -233,19 +226,134 @@
                     </div>
                 </div>
 
-                <div class="chart-card card">
-                    <h3>Spending by Category</h3>
-                    <div class="chart-container">
-                        <canvas id="categoryChart"></canvas>
+                <div class="charts-grid">
+                    <div class="chart-card card">
+                        <div
+                            style="display: flex; justify-content: space-between; align-items: center; margin-bottom: var(--spacing-md);">
+                            <h3 id="categoryChartTitle" style="margin-bottom: 0;">Spending by Category</h3>
+                            <select id="statsGrouping" class="filter-select"
+                                style="padding: 4px 8px; font-size: 0.75rem;">
+                                <option value="category">By Category</option>
+                                <option value="group" selected>By Budget Group</option>
+                            </select>
+                        </div>
+                        <div class="chart-container">
+                            <canvas id="categoryChart"></canvas>
+                        </div>
+                    </div>
+
+                    <div class="chart-card card">
+                        <h3>Daily Spending Trend</h3>
+                        <div class="chart-container line-chart">
+                            <canvas id="trendChart"></canvas>
+                        </div>
+                    </div>
+                </div>
+            </section>
+
+            <!-- Budget Tab -->
+            <section id="budgetTab" class="tab-content">
+                <div class="card summary-card budget-summary">
+                    <div class="summary-header">
+                        <span class="summary-label">Monthly Budget Plan</span>
+                        <div class="period-nav">
+                            <button id="prevMonth" class="nav-btn">❮</button>
+                            <span id="budgetPeriod" class="summary-date">February 2026</span>
+                            <button id="nextMonth" class="nav-btn">❯</button>
+                        </div>
+                    </div>
+                    <div class="summary-amount" id="totalPocketMoney">Rp 0</div>
+                    <div class="budget-progress-container">
+                        <div id="totalBudgetProgress" class="budget-progress-bar"></div>
+                    </div>
+                    <div class="budget-stats-row">
+                        <span>Spent: <span id="budgetSpent">Rp 0</span></span>
+                        <span>Remaining: <span id="budgetRemaining">Rp 0</span></span>
                     </div>
                 </div>
 
-                <div class="chart-card card">
-                    <h3>Daily Spending Trend</h3>
-                    <div class="chart-container line-chart">
-                        <canvas id="trendChart"></canvas>
+                <div class="card">
+                    <div class="card-header budget-header">
+                        <h2 class="form-title">Set Monthly Budget</h2>
+                        <button id="addBudgetGroupBtn" class="btn-secondary btn-small">
+                            + New Budget Group
+                        </button>
                     </div>
+
+                    <!-- Add Budget Group Form (Hidden by default) -->
+                    <div id="newBudgetGroupForm" class="new-category-form hidden">
+                        <h3 class="subsection-title">Create High-Level Budget Group</h3>
+                        <p style="font-size: 0.75rem; color: var(--text-muted); margin-bottom: var(--spacing-md);">
+                            Example: "Monthly Pocket Money", "Savings", or "Emergency"
+                        </p>
+                        <div style="display: flex; flex-direction: column; gap: var(--spacing-md);">
+                            <div class="form-group">
+                                <label style="display: block; margin-bottom: 8px;">Select Group Icon</label>
+                                <div id="groupIconSelector" class="icon-selector-grid">
+                                    <div class="icon-option active" data-icon="💰">💰</div>
+                                    <div class="icon-option" data-icon="🏠">🏠</div>
+                                    <div class="icon-option" data-icon="🍔">🍔</div>
+                                    <div class="icon-option" data-icon="🚗">🚗</div>
+                                    <div class="icon-option" data-icon="🛍️">🛍️</div>
+                                    <div class="icon-option" data-icon="🎮">🎮</div>
+                                    <div class="icon-option" data-icon="📄">📄</div>
+                                    <div class="icon-option" data-icon="💊">💊</div>
+                                    <div class="icon-option" data-icon="📚">📚</div>
+                                    <div class="icon-option" data-icon="📦">📦</div>
+                                    <div class="icon-option" data-icon="🏖️">🏖️</div>
+                                    <div class="icon-option" data-icon="🎁">🎁</div>
+                                    <div class="icon-option" data-icon="💎">💎</div>
+                                    <div class="icon-option" data-icon="🏦">🏦</div>
+                                    <div class="icon-option" data-icon="🚀">🚀</div>
+                                </div>
+                                <input type="hidden" id="newGroupIcon" value="💰">
+                            </div>
+
+                            <div
+                                style="display: grid; grid-template-columns: 1fr auto; gap: var(--spacing-md); align-items: end;">
+                                <div class="form-group">
+                                    <label>Group Name</label>
+                                    <input type="text" id="newGroupName" placeholder="e.g. Pocket Money"
+                                        style="width: 100%;">
+                                </div>
+                                <button type="button" id="saveNewGroupBtn" class="submit-btn add-cat-btn"
+                                    style="min-width: 100px;">Create</button>
+                            </div>
+                        </div>
+                    </div>
+
+                    <form id="budgetForm" class="budget-form">
+                        <div class="form-group" style="margin-bottom: var(--spacing-xl);">
+                            <label for="monthlyIncome">Total Monthly Income / Allowance</label>
+                            <div class="input-wrapper amount-input">
+                                <span class="currency-prefix">Rp</span>
+                                <input type="number" id="monthlyIncome" placeholder="0" min="0" step="1000">
+                            </div>
+                        </div>
+
+                        <h3 class="subsection-title" style="margin-bottom: var(--spacing-sm);">Budget Groups & Limits
+                        </h3>
+                        <p style="font-size: 0.75rem; color: var(--text-muted); margin-bottom: var(--spacing-md);">
+                            Set limits for your high-level categories and assign specific expense categories to them.
+                        </p>
+
+                        <div class="budget-categories" id="budgetGroupsList">
+                            <!-- Budget groups will be injected here -->
+                        </div>
+
+                        <div id="emptyBudgetState" class="empty-state hidden" style="padding: var(--spacing-xl) 0;">
+                            <div class="empty-icon">🎯</div>
+                            <p style="color: var(--text-muted); font-size: 0.9rem;">No budget groups yet. Create one
+                                above to start!</p>
+                        </div>
+
+                        <button type="submit" class="submit-btn" style="margin-top: var(--spacing-lg);">Apply All Budget
+                            Changes</button>
+                    </form>
                 </div>
+
+                <div class="budget-alerts" id="budgetAlerts">
+                    <!-- Alerts and reminders will be injected here -->
             </section>
         </main>
     </div>
