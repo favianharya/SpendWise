@@ -904,9 +904,17 @@ const renderBudgetPerformanceChart = (filteredExpenses, period) => {
 
     const ctx = canvas.getContext('2d');
 
+    // Only show budget chart if looking at 'month' view (since budgets are monthly)
+    // or 'week' view (though less accurate, it's still useful context)
+    if (period !== 'month' && period !== 'week') {
+        container.classList.add('hidden');
+        return;
+    }
+
     // We compare filteredExpenses against the CURRENT month's budget settings
     // This is most accurate for 'This Month' filter.
-    const periodKey = `${new Date().getFullYear()}-${(new Date().getMonth() + 1).toString().padStart(2, '0')}`;
+    const today = new Date();
+    const periodKey = `${today.getFullYear()}-${(today.getMonth() + 1).toString().padStart(2, '0')}`;
     const monthlyData = APP_STATE.monthlySettings[periodKey] || { income: 0, limits: {} };
 
     const labels = [];
