@@ -795,7 +795,9 @@ const renderTrendChart = (expenses, period) => {
 
     const titleEl = $('#trendChartTitle');
     if (titleEl) {
-        if (period === 'year' || period === 'all') {
+        if (period === 'all') {
+            titleEl.textContent = 'All Time Spending Trend';
+        } else if (period === 'year') {
             titleEl.textContent = 'Monthly Spending Trend';
         } else {
             titleEl.textContent = 'Daily Spending Trend';
