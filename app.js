@@ -91,9 +91,16 @@ const formatDateFull = (dateStr) => {
     });
 };
 
+const formatDateToYYYYMMDD = (date) => {
+    const d = new Date(date);
+    const year = d.getFullYear();
+    const month = String(d.getMonth() + 1).padStart(2, '0');
+    const day = String(d.getDate()).padStart(2, '0');
+    return `${year}-${month}-${day}`;
+};
+
 const getToday = () => {
-    const today = new Date();
-    return today.toISOString().split('T')[0];
+    return formatDateToYYYYMMDD(new Date());
 };
 
 const generateId = () => {
@@ -719,7 +726,7 @@ const renderTrendChart = (expenses, period) => {
         for (let i = days - 1; i >= 0; i--) {
             const date = new Date(today);
             date.setDate(date.getDate() - i);
-            const dateStr = date.toISOString().split('T')[0];
+            const dateStr = formatDateToYYYYMMDD(date);
 
             labels.push(date.toLocaleDateString('id-ID', { day: 'numeric', month: 'short' }));
 
@@ -1417,7 +1424,7 @@ const exportToCSV = () => {
     const url = URL.createObjectURL(blob);
     const link = document.createElement('a');
     link.setAttribute('href', url);
-    link.setAttribute('download', `spendwise_expenses_${new Date().toISOString().split('T')[0]}.csv`);
+    link.setAttribute('download', `spendwise_expenses_${formatDateToYYYYMMDD(new Date())}.csv`);
     document.body.appendChild(link);
     link.click();
     document.body.removeChild(link);
@@ -1453,7 +1460,7 @@ const exportAssetsToCSV = () => {
     const url = URL.createObjectURL(blob);
     const link = document.createElement('a');
     link.setAttribute('href', url);
-    link.setAttribute('download', `spendwise_assets_${new Date().toISOString().split('T')[0]}.csv`);
+    link.setAttribute('download', `spendwise_assets_${formatDateToYYYYMMDD(new Date())}.csv`);
     document.body.appendChild(link);
     link.click();
     document.body.removeChild(link);
@@ -2104,8 +2111,8 @@ const initFilters = () => {
     if (startInput && endInput) {
         const now = new Date();
         const firstDay = new Date(now.getFullYear(), now.getMonth(), 1);
-        startInput.value = firstDay.toISOString().split('T')[0];
-        endInput.value = now.toISOString().split('T')[0];
+        startInput.value = formatDateToYYYYMMDD(firstDay);
+        endInput.value = formatDateToYYYYMMDD(now);
     }
 
     if (statsPeriod) {
