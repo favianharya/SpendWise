@@ -391,12 +391,19 @@ const getCategoryName = (category) => {
 
 // ==================== Today's Total ====================
 const updateTodayTotal = () => {
-    const today = getToday();
-    const todayExpenses = APP_STATE.expenses.filter(e => e.date === today);
-    const total = todayExpenses.reduce((sum, e) => sum + e.amount, 0);
+    try {
+        const todayStr = getToday();
+        const todayExpenses = APP_STATE.expenses.filter(e => e.date === todayStr);
+        const total = todayExpenses.reduce((sum, e) => sum + e.amount, 0);
 
-    $('#todayTotal').textContent = formatCurrency(total);
-    $('#todayDate').textContent = formatDateFull(today);
+        const totalEl = $('#todayTotal');
+        const dateEl = $('#todayDate');
+
+        if (totalEl) totalEl.textContent = formatCurrency(total);
+        if (dateEl) dateEl.textContent = formatDateFull(todayStr);
+    } catch (e) {
+        console.error('Error updating today total:', e);
+    }
 };
 
 // ==================== History Rendering ====================
