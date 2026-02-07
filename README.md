@@ -2,10 +2,12 @@
 
 A beautiful Progressive Web App (PWA) for tracking daily expenses with 100% privacy. All data is stored locally on your device.
 
-**Current Version: `v40` (February 2026)**
+**Current Version: `v42` (February 2026)**
 
-## 🚀 Recent Updates (v40)
-- ⚡ **Instant UI Sync**: Consolidated all UI updates into a unified refresh engine. "Today's Spending" and Budget bars now update instantly upon adding an expense.
+## 🚀 Recent Updates (v42)
+- 📈 **Adaptive Spending Trends**: The daily trend chart now perfectly follows your selected date range (Week, Month, or Custom), showing a precise day-by-day breakdown.
+- 🗑️ **Bulk History Deletion**: Clean up your history faster with the "Clear Day" button, allowing you to delete all expenses for a specific date in one tap.
+- ⚡ **Instant UI Sync**: Unified refresh engine for immediate data reflection across all tabs.
 - 📱 **Mobile-First Navigation**: Fixed bottom navigation bar for better reachability on mobile devices.
 - 🎨 **Adaptive UI**: Symmetrical and adaptive category grid using CSS Container Queries for perfect fit on all screens.
 - 📊 **Enhanced Stats Layout**: Redesigned statistics page with a prioritized hero section and smart grid that adapts when assets are empty.

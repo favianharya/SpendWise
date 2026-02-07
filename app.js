@@ -5,6 +5,7 @@ const APP_STATE = {
     monthlyIncome: 0,
     selectedCategory: null,
     deleteExpenseId: null,
+    deleteDate: null,
     categoryChart: null,
     trendChart: null,
     assetAllocationChart: null,
@@ -462,16 +463,35 @@ const renderHistory = () => {
 
     historyList.innerHTML = Object.entries(groupedExpenses).map(([date, expenses]) => `
         <div class="date-group">
-            <div class="date-header">${formatDate(date)}</div>
+            <div class="date-header">
+                <span>${formatDate(date)}</span>
+                <button class="delete-day-btn" data-date="${date}" title="Delete all for this day">
+                    <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                        <path d="M3 6h18M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"></path>
+                    </svg>
+                    Clear day
+                </button>
+            </div>
             ${expenses.map(expense => createExpenseItem(expense)).join('')}
         </div>
     `).join('');
 
-    // Add delete event listeners
+    // Add delete event listeners for items
     $$('.expense-delete').forEach(btn => {
         btn.addEventListener('click', (e) => {
             e.stopPropagation();
             APP_STATE.deleteExpenseId = btn.dataset.id;
+            APP_STATE.deleteDate = null;
+            $('#deleteModal').classList.remove('hidden');
+        });
+    });
+
+    // Add delete event listeners for full days
+    $$('.delete-day-btn').forEach(btn => {
+        btn.addEventListener('click', (e) => {
+            e.stopPropagation();
+            APP_STATE.deleteDate = btn.dataset.date;
+            APP_STATE.deleteExpenseId = null;
             $('#deleteModal').classList.remove('hidden');
         });
     });
@@ -692,11 +712,9 @@ const renderCategoryChart = (expenses) => {
 
 const renderTrendChart = (expenses, period) => {
     const ctx = $('#trendChart').getContext('2d');
-
-    // Get date range
     const labels = [];
     const data = [];
-    const today = new Date(); // Define today here for scope
+    const today = new Date();
 
     if (period === 'year' || period === 'all') {
         // Monthly data for year or all-time view
@@ -727,25 +745,46 @@ const renderTrendChart = (expenses, period) => {
                 data.push(monthTotal);
             }
         }
-
-        // Limit labels if too many for "all" period
-        if (period === 'all' && labels.length > 12) {
-            // Keep last 12-24 months for clarity or we could show all
-            // For now, let's show all but Chart.js will handle the scale
-        }
     } else {
-        // Daily data
-        let days;
-        if (period === 'week') days = 7;
-        else if (period === 'month') days = today.getDate(); // Days passed in current month
-        else days = 7; // Default to week if not specified or unknown
+        // Daily data for week, month, and custom
+        let startDate;
+        let endDate = new Date(today);
+        endDate.setHours(23, 59, 59, 999);
 
-        for (let i = days - 1; i >= 0; i--) {
-            const date = new Date(today);
-            date.setDate(date.getDate() - i);
-            const dateStr = formatDateToYYYYMMDD(date);
+        if (period === 'week') {
+            startDate = new Date(today);
+            startDate.setDate(today.getDate() - 6);
+        } else if (period === 'month') {
+            startDate = new Date(today.getFullYear(), today.getMonth(), 1);
+        } else if (period === 'custom') {
+            const startStr = $('#statsStartDate').value;
+            const endStr = $('#statsEndDate').value;
+            if (startStr && endStr) {
+                startDate = new Date(startStr);
+                endDate = new Date(endStr);
+            } else {
+                startDate = new Date(today);
+                startDate.setDate(today.getDate() - 6);
+            }
+        } else {
+            startDate = new Date(today);
+            startDate.setDate(today.getDate() - 6);
+        }
 
-            labels.push(date.toLocaleDateString('id-ID', { day: 'numeric', month: 'short' }));
+        startDate.setHours(0, 0, 0, 0);
+        endDate.setHours(23, 59, 59, 999);
+
+        // Generate day points
+        const diffMs = endDate - startDate;
+        const diffDays = Math.max(0, Math.floor(diffMs / (1000 * 60 * 60 * 24)));
+
+        for (let i = 0; i <= diffDays; i++) {
+            const d = new Date(startDate);
+            d.setDate(startDate.getDate() + i);
+            if (d > endDate && i > 0) break;
+
+            const dateStr = formatDateToYYYYMMDD(d);
+            labels.push(d.toLocaleDateString('id-ID', { day: 'numeric', month: 'short' }));
 
             const dayTotal = expenses
                 .filter(e => e.date === dateStr)
@@ -1275,11 +1314,14 @@ const initDeleteModal = () => {
     confirmBtn.addEventListener('click', () => {
         if (APP_STATE.deleteExpenseId) {
             APP_STATE.expenses = APP_STATE.expenses.filter(e => e.id !== APP_STATE.deleteExpenseId);
-            saveExpenses();
-            renderHistory();
-            updateTodayTotal();
             showToast('Expense deleted');
+        } else if (APP_STATE.deleteDate) {
+            APP_STATE.expenses = APP_STATE.expenses.filter(e => e.date !== APP_STATE.deleteDate);
+            showToast('Day cleared');
         }
+
+        saveExpenses();
+        refreshApp(); // Use the unified refresh
         closeModal();
     });
 };

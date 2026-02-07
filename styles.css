@@ -1303,7 +1303,30 @@ input[type="date"]::-webkit-calendar-picker-indicator {
     text-transform: uppercase;
     letter-spacing: 0.5px;
     margin-bottom: var(--spacing-sm);
-    padding-left: var(--spacing-sm);
+    padding: 0 var(--spacing-sm);
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+}
+
+.delete-day-btn {
+    background: none;
+    border: none;
+    color: var(--danger);
+    opacity: 0.6;
+    font-size: 0.7rem;
+    padding: 2px 6px;
+    border-radius: 4px;
+    cursor: pointer;
+    transition: all var(--transition-fast);
+    display: flex;
+    align-items: center;
+    gap: 4px;
+}
+
+.delete-day-btn:hover {
+    opacity: 1;
+    background: rgba(255, 71, 87, 0.1);
 }
 
 
