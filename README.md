@@ -2,12 +2,22 @@
 
 A beautiful Progressive Web App (PWA) for tracking daily expenses with 100% privacy. All data is stored locally on your device.
 
+**Current Version: `v24` (February 2026)**
+
+## 🚀 Recent Updates (v24)
+- 🎯 **Budget Groups**: Create high-level containers for categories.
+- 📅 **Historical Budgeting**: Navigate past months to see how you performed against your budget plan.
+- 📈 **Enhanced Stats**: Toggle charts between "By Category" and "By Budget Group" views.
+- 🛡️ **Budget Safety**: Prevents setting budget limits that exceed your monthly income.
+- ✨ **UI Refinements**: New icon selector for groups and intuitive blue selection highlights.
+
 ## Features
 
 - ✅ **Track Daily Expenses** - Add amount, category, and description
-- ✅ **8 Categories** - Food, Transport, Shopping, Entertainment, Bills, Health, Education, Other
+- ✅ **High-Level Budgeting** - Set limits for groups like "Pocket Money" or "Bills"
+- ✅ **Historical Overview** - Navigate backwards to previous months to track history
 - ✅ **Transaction History** - View expenses by day, week, month, or all time
-- ✅ **Statistics & Charts** - Beautiful doughnut and line charts
+- ✅ **Statistics & Charts** - Beautiful doughnut and line charts with grouping support
 - ✅ **Offline Support** - Works without internet connection
 - ✅ **Installable** - Add to home screen like a native app
 - ✅ **CSV Export** - Download your data as a CSV file anytime
@@ -52,7 +62,7 @@ A beautiful Progressive Web App (PWA) for tracking daily expenses with 100% priv
 - **CSS3** - Custom properties, flexbox, grid, animations
 - **JavaScript (ES6+)** - Vanilla JS, no frameworks
 - **Chart.js** - Data visualization
-- **Service Worker** - Offline support
+- **Service Worker** - Offline support (v24 cache logic)
 - **Web App Manifest** - PWA installability
 
 ## Project Structure
