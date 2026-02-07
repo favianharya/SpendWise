@@ -9,6 +9,7 @@ const APP_STATE = {
     categoryChart: null,
     trendChart: null,
     assetAllocationChart: null,
+    budgetPerformanceChart: null,
     statsGrouping: 'group', // 'group' or 'category'
     viewMonth: new Date().getMonth(),
     viewYear: new Date().getFullYear(),
@@ -606,6 +607,7 @@ const renderStats = () => {
     renderCategoryChart(filteredExpenses);
     renderTrendChart(filteredExpenses, period);
     renderAssetAllocationChart();
+    renderBudgetPerformanceChart(filteredExpenses, period);
 };
 
 const renderCategoryChart = (expenses) => {
@@ -848,28 +850,144 @@ const renderTrendChart = (expenses, period) => {
                 backgroundColor: 'rgba(108, 99, 255, 0.1)',
                 fill: true,
                 tension: 0.4,
-                pointRadius: 3,
+                pointRadius: 2,
                 pointBackgroundColor: '#6c63ff',
-                pointBorderWidth: 0
+                borderWidth: 2
             }]
         },
         options: {
             responsive: true,
             maintainAspectRatio: false,
-            plugins: {
-                legend: { display: false }
-            },
             scales: {
-                x: {
-                    grid: { display: false },
-                    ticks: { color: '#6b6b80', font: { size: 10 } }
-                },
                 y: {
-                    grid: { color: 'rgba(255,255,255,0.05)' },
+                    beginAtZero: true,
+                    grid: { color: 'rgba(255, 255, 255, 0.05)' },
                     ticks: {
-                        color: '#6b6b80',
+                        color: '#a0a0b8',
                         font: { size: 10 },
                         callback: (value) => value >= 1000000 ? (value / 1000000) + 'M' : value >= 1000 ? (value / 1000) + 'K' : value
+                    }
+                },
+                x: {
+                    grid: { display: false },
+                    ticks: { color: '#a0a0b8', font: { size: 10 }, maxRotation: 45, minRotation: 0 }
+                }
+            },
+            plugins: {
+                legend: { display: false },
+                tooltip: {
+                    backgroundColor: '#1a1a2e',
+                    titleColor: '#fff',
+                    bodyColor: '#a0a0b8',
+                    borderColor: 'rgba(255, 255, 255, 0.1)',
+                    borderWidth: 1,
+                    callbacks: {
+                        label: (context) => formatCurrency(context.raw)
+                    }
+                }
+            }
+        }
+    });
+};
+
+const renderBudgetPerformanceChart = (filteredExpenses, period) => {
+    const canvas = $('#budgetPerformanceChart');
+    const container = $('#budgetPerformanceContainer');
+    if (!canvas || !container) return;
+
+    // Only relevant if we have budget groups
+    if (APP_STATE.budgetGroups.length === 0) {
+        container.classList.add('hidden');
+        return;
+    }
+    container.classList.remove('hidden');
+
+    const ctx = canvas.getContext('2d');
+
+    // We compare filteredExpenses against the CURRENT month's budget settings
+    // This is most accurate for 'This Month' filter.
+    const periodKey = `${new Date().getFullYear()}-${(new Date().getMonth() + 1).toString().padStart(2, '0')}`;
+    const monthlyData = APP_STATE.monthlySettings[periodKey] || { income: 0, limits: {} };
+
+    const labels = [];
+    const spentData = [];
+    const budgetData = [];
+    const backgroundColors = [];
+
+    APP_STATE.budgetGroups.forEach(group => {
+        const limit = monthlyData.limits[group.id] ?? group.limit ?? 0;
+
+        // Calculate spent for this group in the CURRENT filter
+        const spent = filteredExpenses
+            .filter(e => group.categoryIds.includes(e.category))
+            .reduce((sum, e) => sum + e.amount, 0);
+
+        if (limit > 0 || spent > 0) {
+            labels.push(`${group.icon} ${group.name}`);
+            spentData.push(spent);
+            budgetData.push(limit);
+
+            // Red if exceeded, primary if safe
+            backgroundColors.push(spent > limit && limit > 0 ? '#ff4757' : '#6c63ff');
+        }
+    });
+
+    if (labels.length === 0) {
+        container.classList.add('hidden');
+        return;
+    }
+
+    if (APP_STATE.budgetPerformanceChart) {
+        APP_STATE.budgetPerformanceChart.destroy();
+    }
+
+    APP_STATE.budgetPerformanceChart = new Chart(ctx, {
+        type: 'bar',
+        data: {
+            labels: labels,
+            datasets: [
+                {
+                    label: 'Spent',
+                    data: spentData,
+                    backgroundColor: backgroundColors,
+                    borderRadius: 4,
+                },
+                {
+                    label: 'Limit',
+                    data: budgetData,
+                    backgroundColor: 'rgba(255, 255, 255, 0.1)',
+                    borderRadius: 4,
+                }
+            ]
+        },
+        options: {
+            indexAxis: 'y',
+            responsive: true,
+            maintainAspectRatio: false,
+            scales: {
+                x: {
+                    beginAtZero: true,
+                    grid: { color: 'rgba(255, 255, 255, 0.05)' },
+                    ticks: {
+                        color: '#a0a0b8',
+                        font: { size: 10 },
+                        callback: (value) => value >= 1000000 ? (value / 1000000) + 'M' : value >= 1000 ? (value / 1000) + 'K' : value
+                    }
+                },
+                y: {
+                    grid: { display: false },
+                    ticks: { color: '#a0a0b8', font: { size: 10 } }
+                }
+            },
+            plugins: {
+                legend: {
+                    display: true,
+                    position: 'top',
+                    labels: { color: '#a0a0b8', font: { size: 10 } }
+                },
+                tooltip: {
+                    callbacks: {
+                        label: (context) => `${context.dataset.label}: ${formatCurrency(context.raw)}`
                     }
                 }
             }
