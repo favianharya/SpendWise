@@ -377,11 +377,21 @@ const initForm = () => {
         APP_STATE.selectedCategory = null;
         $('#category').value = '';
 
-        // Update UI
-        updateTodayTotal();
-        updateHomeBudgetStatus();
+        // Global UI Refresh
+        refreshApp();
         showToast('Expense added successfully! 💰');
     });
+};
+
+const refreshApp = () => {
+    updateTodayTotal();
+    updateHomeBudgetStatus();
+
+    // Refresh active tab views
+    const activeTab = $('.nav-tab.active')?.dataset.tab;
+    if (activeTab === 'history') renderHistory();
+    if (activeTab === 'stats') renderStats();
+    if (activeTab === 'budget') renderBudget();
 };
 
 const getCategoryName = (category) => {
@@ -1223,8 +1233,14 @@ const updateHomeBudgetStatus = () => {
     const monthlyData = APP_STATE.monthlySettings[periodKey] || { income: APP_STATE.monthlyIncome, limits: {} };
     const income = monthlyData.income || APP_STATE.monthlyIncome || 0;
 
+    const currentMonth = today.getMonth();
+    const currentYear = today.getFullYear();
+
     const totalSpent = APP_STATE.expenses
-        .filter(e => new Date(e.date) >= monthStart)
+        .filter(e => {
+            const expDate = new Date(e.date);
+            return expDate.getMonth() === currentMonth && expDate.getFullYear() === currentYear;
+        })
         .reduce((sum, e) => sum + e.amount, 0);
 
     if (income > 0) {
