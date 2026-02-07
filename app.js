@@ -1461,6 +1461,11 @@ const processImportCSV = (csvContent) => {
         }
 
         const existingIds = new Set(APP_STATE.expenses.map(e => e.id));
+        // Fallback signature for CSVs without IDs (Date-Amount-Category-Description)
+        const existingSignatures = new Set(APP_STATE.expenses.map(e =>
+            `${e.date}|${e.amount}|${e.category}|${e.description}`
+        ));
+
         const newExpenses = [];
         let duplicateCount = 0;
 
@@ -1470,18 +1475,24 @@ const processImportCSV = (csvContent) => {
             if (!matches) continue;
             const values = matches.map(v => v.replace(/^"|"$/g, '').trim());
 
-            const id = indices.id !== undefined ? values[indices.id] : generateId();
+            const date = values[indices.date];
+            const amount = parseFloat(values[indices.amount]);
+            const category = values[indices.category]?.toLowerCase();
+            const description = values[indices.description] || '';
+            const id = indices.id !== undefined ? values[indices.id] : null;
 
-            // If ID exists, it's a duplicate - skip it
-            if (indices.id !== undefined && existingIds.has(id)) {
+            // 1. Check ID Duplicate (if ID exists in CSV)
+            if (id && existingIds.has(id)) {
                 duplicateCount++;
                 continue;
             }
 
-            const date = values[indices.date];
-            const amount = parseFloat(values[indices.amount]);
-            const category = values[indices.category]?.toLowerCase();
-            const description = values[indices.description];
+            // 2. Check Content Duplicate (Fuzzy matching for old CSVs)
+            const signature = `${date}|${amount}|${category}|${description}`;
+            if (existingSignatures.has(signature)) {
+                duplicateCount++;
+                continue;
+            }
 
             if (!date || isNaN(new Date(date).getTime())) continue;
             if (isNaN(amount)) continue;
@@ -1489,12 +1500,15 @@ const processImportCSV = (csvContent) => {
             const finalCat = APP_STATE.categories[category] ? category : 'other';
 
             newExpenses.push({
-                id,
+                id: id || generateId(),
                 date,
                 amount,
                 category: finalCat,
-                description: description || ''
+                description: description
             });
+
+            // Prevent adding same item twice in the same import session
+            existingSignatures.add(signature);
         }
 
         if (newExpenses.length === 0) {
@@ -1833,6 +1847,7 @@ const processImportAssetsCSV = (csvContent) => {
         }
 
         const existingIds = new Set(APP_STATE.assets.map(a => a.id));
+        const existingSignatures = new Set(APP_STATE.assets.map(a => `${a.name.toLowerCase()}|${a.type.toLowerCase()}`));
         const newAssets = [];
         let duplicateCount = 0;
 
@@ -1842,20 +1857,27 @@ const processImportAssetsCSV = (csvContent) => {
             if (!matches) continue;
             const values = matches.map(v => v.replace(/^"|"$/g, '').trim());
 
-            const id = indices.id !== undefined ? values[indices.id] : generateId();
+            const name = values[indices.name];
+            const typeToken = values[indices.type]?.toLowerCase();
+            const id = indices.id !== undefined ? values[indices.id] : null;
 
-            if (indices.id !== undefined && existingIds.has(id)) {
+            // 1. Check ID Duplicate
+            if (id && existingIds.has(id)) {
                 duplicateCount++;
                 continue;
             }
 
-            const name = values[indices.name];
-            const typeToken = values[indices.type]?.toLowerCase();
+            // 2. Check Content Duplicate (Fuzzy)
+            const signature = `${name?.toLowerCase()}|${typeToken}`;
+            if (existingSignatures.has(signature)) {
+                duplicateCount++;
+                continue;
+            }
 
             if (!name || !typeToken || !ASSET_TYPES[typeToken]) continue;
 
             newAssets.push({
-                id,
+                id: id || generateId(),
                 name,
                 type: typeToken,
                 value: parseFloat(values[indices.value]) || 0,
