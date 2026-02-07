@@ -21,8 +21,7 @@ const APP_STATE = {
         lastUpdated: null
     },
     editingAssetId: null,
-    statsMonth: new Date().getMonth(),
-    statsYear: new Date().getFullYear()
+    statsDate: new Date() // Pivot date for stats navigation
 };
 
 // Default static categories
@@ -156,9 +155,8 @@ const loadBudgets = () => {
         APP_STATE.monthlyIncome = activeBudgetData.income;
 
         // Ensure stats dates are valid
-        if (isNaN(APP_STATE.statsMonth) || isNaN(APP_STATE.statsYear)) {
-            APP_STATE.statsMonth = today.getMonth();
-            APP_STATE.statsYear = today.getFullYear();
+        if (!(APP_STATE.statsDate instanceof Date) || isNaN(APP_STATE.statsDate)) {
+            APP_STATE.statsDate = new Date();
         }
 
     } catch (e) {
@@ -542,37 +540,80 @@ const renderStats = () => {
     let filteredExpenses = [...APP_STATE.expenses];
     let daysInPeriod = 7;
 
+    const label = $('#statsPeriodLabel');
+
+    if (period === 'custom' || period === 'all') {
+        const nav = $('#statsNav');
+        if (nav) nav.classList.add('hidden');
+    } else {
+        const nav = $('#statsNav');
+        if (nav) nav.classList.remove('hidden');
+    }
+
     switch (period) {
         case 'week':
-            const weekAgo = new Date(today);
-            weekAgo.setDate(weekAgo.getDate() - 7);
-            weekAgo.setHours(0, 0, 0, 0);
-            filteredExpenses = filteredExpenses.filter(e => parseLocalDate(e.date) >= weekAgo);
-            daysInPeriod = 7;
-            break;
-        case 'month':
-            // Update label for UI
-            const label = $('#statsPeriodLabel');
-            if (label) {
-                label.textContent = new Date(APP_STATE.statsYear, APP_STATE.statsMonth).toLocaleDateString('id-ID', { month: 'long', year: 'numeric' });
-            }
+            // Find start (Monday) and end (Sunday) of the week containing statsDate
+            const currentDay = APP_STATE.statsDate.getDay(); // 0 (Sun) to 6 (Sat)
+            const diffToMon = currentDay === 0 ? 6 : currentDay - 1; // Days to subtract to get to Monday
 
-            // Use the selected Stats Month/Year instead of just "Today"
-            const statMonthStart = new Date(APP_STATE.statsYear, APP_STATE.statsMonth, 1);
-            const statMonthEnd = new Date(APP_STATE.statsYear, APP_STATE.statsMonth + 1, 0); // Last day of that month
-            statMonthEnd.setHours(23, 59, 59, 999);
+            const weekStart = new Date(APP_STATE.statsDate);
+            weekStart.setDate(weekStart.getDate() - diffToMon);
+            weekStart.setHours(0, 0, 0, 0);
+
+            const weekEnd = new Date(weekStart);
+            weekEnd.setDate(weekStart.getDate() + 6);
+            weekEnd.setHours(23, 59, 59, 999);
+
+            if (label) {
+                const startStr = weekStart.toLocaleDateString('id-ID', { day: 'numeric', month: 'short' });
+                const endStr = weekEnd.toLocaleDateString('id-ID', { day: 'numeric', month: 'short', year: 'numeric' });
+                label.textContent = `${startStr} - ${endStr}`;
+            }
 
             filteredExpenses = filteredExpenses.filter(e => {
                 const d = parseLocalDate(e.date);
-                return d >= statMonthStart && d <= statMonthEnd;
+                return d >= weekStart && d <= weekEnd;
             });
-            daysInPeriod = statMonthEnd.getDate();
+            daysInPeriod = 7;
             break;
+
+        case 'month':
+            const year = APP_STATE.statsDate.getFullYear();
+            const month = APP_STATE.statsDate.getMonth();
+
+            if (label) {
+                label.textContent = APP_STATE.statsDate.toLocaleDateString('id-ID', { month: 'long', year: 'numeric' });
+            }
+
+            const monthStart = new Date(year, month, 1);
+            const monthEnd = new Date(year, month + 1, 0);
+            monthEnd.setHours(23, 59, 59, 999);
+
+            filteredExpenses = filteredExpenses.filter(e => {
+                const d = parseLocalDate(e.date);
+                return d >= monthStart && d <= monthEnd;
+            });
+            daysInPeriod = monthEnd.getDate();
+            break;
+
         case 'year':
-            const yearStart = new Date(today.getFullYear(), 0, 1);
-            filteredExpenses = filteredExpenses.filter(e => parseLocalDate(e.date) >= yearStart);
-            daysInPeriod = Math.ceil((today - yearStart) / (1000 * 60 * 60 * 24));
+            const y = APP_STATE.statsDate.getFullYear();
+
+            if (label) {
+                label.textContent = `${y}`;
+            }
+
+            const yearStart = new Date(y, 0, 1);
+            const yearEnd = new Date(y, 11, 31);
+            yearEnd.setHours(23, 59, 59, 999);
+
+            filteredExpenses = filteredExpenses.filter(e => {
+                const d = parseLocalDate(e.date);
+                return d >= yearStart && d <= yearEnd;
+            });
+            daysInPeriod = (yearEnd - yearStart) / (1000 * 60 * 60 * 24); // approx
             break;
+
         case 'all':
             filteredExpenses = [...APP_STATE.expenses];
             if (filteredExpenses.length > 0) {
@@ -584,6 +625,7 @@ const renderStats = () => {
                 daysInPeriod = 1;
             }
             break;
+
         case 'custom':
             const startStr = $('#statsStartDate').value;
             const endStr = $('#statsEndDate').value;
@@ -934,7 +976,8 @@ const renderBudgetPerformanceChart = (filteredExpenses, period) => {
 
     // We compare filteredExpenses against the CURRENT stats month's budget settings
     // This allows viewing historical budget performance.
-    const periodKey = `${APP_STATE.statsYear}-${(APP_STATE.statsMonth + 1).toString().padStart(2, '0')}`;
+    // periodKey needs to be YYYY-MM based on the statsDate
+    const periodKey = `${APP_STATE.statsDate.getFullYear()}-${(APP_STATE.statsDate.getMonth() + 1).toString().padStart(2, '0')}`;
     const monthlyData = APP_STATE.monthlySettings[periodKey] || { income: 0, limits: {} };
 
     const labels = [];
@@ -2423,44 +2466,49 @@ const initFilters = () => {
             } else {
                 customRange.classList.add('hidden');
             }
-            // Show/hide month navigation
-            const monthNav = $('#statsMonthNav');
-            if (statsPeriod.value === 'month') {
-                if (monthNav) monthNav.classList.remove('hidden');
-                // Reset to current month when switching to month view
-                const today = new Date();
-                APP_STATE.statsMonth = today.getMonth();
-                APP_STATE.statsYear = today.getFullYear();
-            } else {
-                if (monthNav) monthNav.classList.add('hidden');
+
+            // Always reset date to Today when switching periods to avoid confusion
+            APP_STATE.statsDate = new Date();
+            renderStats();
+        });
+    }
+
+    // Generic Stats Navigation (Week, Month, Year)
+    const prevBtn = $('#prevStatsBtn');
+    const nextBtn = $('#nextStatsBtn');
+
+    if (prevBtn) {
+        prevBtn.addEventListener('click', (e) => {
+            e.preventDefault();
+            const mode = statsPeriod.value;
+
+            if (mode === 'week') {
+                APP_STATE.statsDate.setDate(APP_STATE.statsDate.getDate() - 7);
+            } else if (mode === 'month') {
+                // Move to previous month, keeping date ~15th to avoid end-of-month issues
+                const d = APP_STATE.statsDate;
+                d.setDate(1); // Set to 1st to enable Month-only math
+                d.setMonth(d.getMonth() - 1);
+            } else if (mode === 'year') {
+                APP_STATE.statsDate.setFullYear(APP_STATE.statsDate.getFullYear() - 1);
             }
             renderStats();
         });
     }
 
-    // Stats Month Navigation
-    const prevMonthBtn = $('#prevStatsMonth');
-    const nextMonthBtn = $('#nextStatsMonth');
-
-    if (prevMonthBtn) {
-        prevMonthBtn.addEventListener('click', (e) => {
+    if (nextBtn) {
+        nextBtn.addEventListener('click', (e) => {
             e.preventDefault();
-            APP_STATE.statsMonth--;
-            if (APP_STATE.statsMonth < 0) {
-                APP_STATE.statsMonth = 11;
-                APP_STATE.statsYear--;
-            }
-            renderStats();
-        });
-    }
+            const mode = statsPeriod.value;
 
-    if (nextMonthBtn) {
-        nextMonthBtn.addEventListener('click', (e) => {
-            e.preventDefault();
-            APP_STATE.statsMonth++;
-            if (APP_STATE.statsMonth > 11) {
-                APP_STATE.statsMonth = 0;
-                APP_STATE.statsYear++;
+            if (mode === 'week') {
+                APP_STATE.statsDate.setDate(APP_STATE.statsDate.getDate() + 7);
+            } else if (mode === 'month') {
+                const d = APP_STATE.statsDate;
+                d.setDate(1);
+                d.setMonth(d.getMonth() + 1);
+            } else if (mode === 'year') {
+                APP_STATE.statsDate.setFullYear(APP_STATE.statsDate.getFullYear() + 1);
             }
             renderStats();
         });
