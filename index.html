@@ -26,6 +26,10 @@
     <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.min.js"></script>
 
     <link rel="stylesheet" href="styles.css">
+
+    <!-- QR Code Libraries -->
+    <script src="https://cdn.jsdelivr.net/npm/qrcode@1.5.1/build/qrcode.min.js"></script>
+    <script src="https://unpkg.com/html5-qrcode@2.3.8/html5-qrcode.min.js"></script>
 </head>
 
 <body>
@@ -559,6 +563,41 @@
                         </svg>
                         Choose CSV File
                     </button>
+                </div>
+
+                <div class="import-section"
+                    style="border-top: 1px solid rgba(255,255,255,0.1); padding-top: var(--spacing-xl); margin-top: var(--spacing-xl);">
+                    <h4 class="subsection-title" style="margin-bottom: var(--spacing-md);">Wireless Direct Transfer</h4>
+                    <p style="font-size: 0.8rem; color: var(--text-muted); margin-bottom: var(--spacing-md);">
+                        Transfer data between devices using QR codes. No internet required.
+                    </p>
+                    <div style="display: flex; gap: var(--spacing-md);">
+                        <button id="generateQrBtn" class="submit-btn"
+                            style="flex: 1; height: auto; padding: 12px; background: var(--accent-gradient);">
+                            Send to Device
+                        </button>
+                        <button id="scanQrBtn" class="submit-btn secondary"
+                            style="flex: 1; height: auto; padding: 12px; background: rgba(255,255,255,0.05); border: 1px solid var(--accent-primary);">
+                            Receive Data
+                        </button>
+                    </div>
+
+                    <!-- QR Display Area -->
+                    <div id="qrDisplayArea" class="qr-display-area hidden">
+                        <div class="qr-container-bg">
+                            <canvas id="qrCanvas"></canvas>
+                        </div>
+                        <p style="font-size: 0.7rem; color: var(--text-muted); text-align: center; margin-top: 8px;">
+                            Scan this with the "Receive Data" camera on your other device.
+                        </p>
+                    </div>
+
+                    <!-- QR Scanner Area -->
+                    <div id="qrScannerArea" class="qr-scanner-area hidden">
+                        <div id="qrReader" style="width: 100%; overflow: hidden; border-radius: 12px;"></div>
+                        <button id="stopScanBtn" class="btn-secondary" style="margin-top: 12px; width: 100%;">Cancel
+                            Scan</button>
+                    </div>
                 </div>
 
                 <div class="import-section"

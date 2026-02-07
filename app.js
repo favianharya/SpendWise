@@ -1461,6 +1461,155 @@ const exportAssetsToCSV = () => {
     $('#exportModal').classList.add('hidden');
 };
 
+// ==================== QR Sync / Transfer ====================
+let qrScanner = null;
+
+const initQrSync = () => {
+    const generateBtn = $('#generateQrBtn');
+    const scanBtn = $('#scanQrBtn');
+    const stopBtn = $('#stopScanBtn');
+
+    generateBtn?.addEventListener('click', generateSyncQR);
+    scanBtn?.addEventListener('click', startQRScanner);
+    stopBtn?.addEventListener('click', stopQRScanner);
+};
+
+const generateSyncQR = () => {
+    const canvas = $('#qrCanvas');
+    const displayArea = $('#qrDisplayArea');
+    const scannerArea = $('#qrScannerArea');
+
+    // Prepare clean data for sync
+    const syncData = {
+        v: 1, // Version
+        t: Date.now(),
+        expenses: APP_STATE.expenses,
+        assets: APP_STATE.assets,
+        monthlySettings: APP_STATE.monthlySettings,
+        categories: APP_STATE.categories
+    };
+
+    const jsonStr = JSON.stringify(syncData);
+
+    // Check if data is too large (QR limit is ~3KB)
+    if (jsonStr.length > 2900) {
+        showToast('Data too large for QR! Please use CSV backup instead.', 'error');
+        return;
+    }
+
+    QRCode.toCanvas(canvas, jsonStr, {
+        width: 256,
+        margin: 2,
+        color: {
+            dark: '#1a1a2e',
+            light: '#ffffff'
+        }
+    }, (error) => {
+        if (error) {
+            console.error(error);
+            showToast('Failed to generate QR', 'error');
+        } else {
+            scannerArea.classList.add('hidden');
+            displayArea.classList.toggle('hidden');
+            if (!displayArea.classList.contains('hidden')) {
+                displayArea.scrollIntoView({ behavior: 'smooth' });
+            }
+        }
+    });
+};
+
+const startQRScanner = async () => {
+    const scannerArea = $('#qrScannerArea');
+    const displayArea = $('#qrDisplayArea');
+
+    displayArea.classList.add('hidden');
+    scannerArea.classList.remove('hidden');
+
+    qrScanner = new Html5Qrcode("qrReader");
+
+    const config = { fps: 10, qrbox: { width: 250, height: 250 } };
+
+    try {
+        await qrScanner.start({ facingMode: "environment" }, config, onScanSuccess);
+        scannerArea.scrollIntoView({ behavior: 'smooth' });
+    } catch (err) {
+        console.error(err);
+        showToast('Camera access denied or error', 'error');
+        scannerArea.classList.add('hidden');
+    }
+};
+
+const stopQRScanner = async () => {
+    if (qrScanner) {
+        await qrScanner.stop();
+        qrScanner = null;
+    }
+    $('#qrScannerArea').classList.add('hidden');
+};
+
+const onScanSuccess = (decodedText) => {
+    stopQRScanner();
+
+    try {
+        const incomingData = JSON.parse(decodedText);
+
+        if (!incomingData.expenses || !incomingData.assets) {
+            throw new Error('Invalid SpendWise QR data');
+        }
+
+        if (confirm(`Found ${incomingData.expenses.length} expenses and ${incomingData.assets.length} assets. Merge into this device?`)) {
+            mergeSyncData(incomingData);
+        }
+    } catch (e) {
+        console.error(e);
+        showToast('Invalid or corrupted QR data', 'error');
+    }
+};
+
+const mergeSyncData = (data) => {
+    // 1. Merge Expenses (checking for duplicates by ID)
+    const existingExpenseIds = new Set(APP_STATE.expenses.map(e => e.id));
+    const newExpenses = data.expenses.filter(e => !existingExpenseIds.has(e.id));
+    APP_STATE.expenses = [...APP_STATE.expenses, ...newExpenses];
+
+    // 2. Merge Assets
+    const existingAssetIds = new Set(APP_STATE.assets.map(a => a.id));
+    const newAssets = data.assets.filter(a => !existingAssetIds.has(a.id));
+    APP_STATE.assets = [...APP_STATE.assets, ...newAssets];
+
+    // 3. Merge Monthly Settings (Budgets & Income)
+    // We prioritize newer timestamps if we had them, but for now we'll just merge unique keys
+    Object.keys(data.monthlySettings).forEach(key => {
+        if (!APP_STATE.monthlySettings[key]) {
+            APP_STATE.monthlySettings[key] = data.monthlySettings[key];
+        } else {
+            // If exists, merge nested limits
+            const incomingLimits = data.monthlySettings[key].limits || {};
+            APP_STATE.monthlySettings[key].limits = {
+                ...APP_STATE.monthlySettings[key].limits,
+                ...incomingLimits
+            };
+        }
+    });
+
+    // 4. Merge Categories
+    APP_STATE.categories = { ...data.categories, ...APP_STATE.categories };
+
+    // Save and Refresh
+    saveExpenses();
+    saveAssets();
+    saveBudgets();
+    saveCategories();
+
+    renderHistory();
+    renderAssets();
+    updateTodayTotal();
+    updateHomeBudgetStatus();
+
+    showToast(`Merge complete! Added ${newExpenses.length} records.`);
+    $('#exportModal').classList.add('hidden');
+};
+
 const processImportAssetsCSV = (csvContent) => {
     try {
         const lines = csvContent.split('\n').filter(line => line.trim());
@@ -1946,6 +2095,7 @@ const initApp = () => {
     initAssetForm();
     initDeleteModal();
     initExportModal();
+    initQrSync();
     initFilters();
 
     // Initial render
