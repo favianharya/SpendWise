@@ -1479,28 +1479,50 @@ const generateSyncQR = () => {
     const displayArea = $('#qrDisplayArea');
     const scannerArea = $('#qrScannerArea');
 
-    // Prepare clean data for sync
+    // Super aggressive compression: Convert objects to arrays to remove key names
+    // Expense format: [id, date, amount, category, description]
+    const minExpenses = APP_STATE.expenses.map(e => [
+        e.id,
+        e.date,
+        e.amount,
+        e.category,
+        e.description || ""
+    ]);
+
+    // Asset format: [id, name, type, value, quantity, interestRate, period, taxRate]
+    const minAssets = APP_STATE.assets.map(a => [
+        a.id,
+        a.name,
+        a.type,
+        a.value || 0,
+        a.quantity || 0,
+        a.interestRate || 0,
+        a.period || 0,
+        a.taxRate || 0
+    ]);
+
     const syncData = {
-        v: 1, // Version
+        v: 2, // New compressed version
         t: Date.now(),
-        e: APP_STATE.expenses, // Minified keys for smaller QR
-        a: APP_STATE.assets,
+        e: minExpenses,
+        a: minAssets,
         m: APP_STATE.monthlySettings,
         c: APP_STATE.categories
     };
 
     const jsonStr = JSON.stringify(syncData);
 
-    // Check if data is too large (QR limit is ~3KB)
-    if (jsonStr.length > 2900) {
-        showToast('Data too large for QR! Please use CSV backup instead.', 'error');
+    // QR limit for reliable scanning on screens is roughly 2300 chars
+    console.log('Final QR Data length:', jsonStr.length);
+    if (jsonStr.length > 2500) {
+        showToast('Too many entries for QR scan! Please use "Backup to CSV" instead.', 'error');
         return;
     }
 
     QRCode.toCanvas(canvas, jsonStr, {
         width: 320,
-        margin: 4, // More breathing room for the white border
-        errorCorrectionLevel: 'L', // Low correction makes the dots larger and easier to scan
+        margin: 4,
+        errorCorrectionLevel: 'L',
         color: {
             dark: '#000000',
             light: '#ffffff'
@@ -1573,19 +1595,46 @@ const onScanSuccess = (decodedText) => {
 };
 
 const mergeSyncData = (data) => {
-    const expenses = data.e || data.expenses || [];
-    const assets = data.a || data.assets || [];
+    let incomingExpenses = [];
+    let incomingAssets = [];
+
+    // Handle Versioning
+    if (data.v === 2) {
+        // Decompress Array-of-Arrays format
+        incomingExpenses = data.e.map(arr => ({
+            id: arr[0],
+            date: arr[1],
+            amount: arr[2],
+            category: arr[3],
+            description: arr[4]
+        }));
+        incomingAssets = data.a.map(arr => ({
+            id: arr[0],
+            name: arr[1],
+            type: arr[2],
+            value: arr[3],
+            quantity: arr[4],
+            interestRate: arr[5],
+            period: arr[6],
+            taxRate: arr[7]
+        }));
+    } else {
+        // Fallback for old format (v1 or legacy)
+        incomingExpenses = data.e || data.expenses || [];
+        incomingAssets = data.a || data.assets || [];
+    }
+
     const monthlySettings = data.m || data.monthlySettings || {};
     const categories = data.c || data.categories || {};
 
     // 1. Merge Expenses (checking for duplicates by ID)
     const existingExpenseIds = new Set(APP_STATE.expenses.map(e => e.id));
-    const newExpenses = expenses.filter(e => !existingExpenseIds.has(e.id));
+    const newExpenses = incomingExpenses.filter(e => !existingExpenseIds.has(e.id));
     APP_STATE.expenses = [...APP_STATE.expenses, ...newExpenses];
 
     // 2. Merge Assets
     const existingAssetIds = new Set(APP_STATE.assets.map(a => a.id));
-    const newAssets = assets.filter(a => !existingAssetIds.has(a.id));
+    const newAssets = incomingAssets.filter(a => !existingAssetIds.has(a.id));
     APP_STATE.assets = [...APP_STATE.assets, ...newAssets];
 
     // 3. Merge Monthly Settings (Budgets & Income)
