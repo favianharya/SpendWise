@@ -793,6 +793,15 @@ const renderTrendChart = (expenses, period) => {
         }
     }
 
+    const titleEl = $('#trendChartTitle');
+    if (titleEl) {
+        if (period === 'year' || period === 'all') {
+            titleEl.textContent = 'Monthly Spending Trend';
+        } else {
+            titleEl.textContent = 'Daily Spending Trend';
+        }
+    }
+
     if (APP_STATE.trendChart) {
         APP_STATE.trendChart.destroy();
     }
