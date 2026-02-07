@@ -108,6 +108,12 @@ const generateId = () => {
     return Date.now().toString(36) + Math.random().toString(36).substr(2);
 };
 
+const parseLocalDate = (dateStr) => {
+    if (!dateStr) return new Date();
+    const [y, m, d] = dateStr.split('-').map(Number);
+    return new Date(y, m - 1, d);
+};
+
 // ==================== Storage Functions ====================
 const loadExpenses = () => {
     try {
@@ -721,8 +727,8 @@ const renderTrendChart = (expenses, period) => {
         let startYear, startMonth, endYear, endMonth;
 
         if (period === 'all' && expenses.length > 0) {
-            // Find earliest data point across all expenses
-            const allDates = expenses.map(e => new Date(e.date));
+            // Find earliest data point across all expenses using local parsing
+            const allDates = expenses.map(e => parseLocalDate(e.date).getTime());
             const firstDateData = new Date(Math.min(...allDates));
 
             startYear = firstDateData.getFullYear();
@@ -752,7 +758,7 @@ const renderTrendChart = (expenses, period) => {
 
                 const monthTotal = expenses
                     .filter(e => {
-                        const d = new Date(e.date);
+                        const d = parseLocalDate(e.date);
                         return d >= monthStart && d <= monthEnd;
                     })
                     .reduce((sum, e) => sum + e.amount, 0);

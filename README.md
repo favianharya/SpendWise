@@ -2,12 +2,12 @@
 
 A beautiful Progressive Web App (PWA) for tracking daily expenses with 100% privacy. All data is stored locally on your device.
 
-**Current Version: `v50` (February 2026)**
+**Current Version: `v52` (February 2026)**
 
-## 🚀 Recent Updates (v50)
-- 📊 **Self-Naming Chart Titles**: The trend chart now explicitly names itself based on your selection (e.g., "This Year Spending Trend", "Weekly Spending Trend") so you always know exactly what data you are looking at.
-- 📅 **Current Year Baseline**: Selecting "This year" now consistently shows your spending starting from January.
-- 📊 **Precise "All Time" Range**: All Time chart starts exactly from your first interaction.
+## 🚀 Recent Updates (v52)
+- 🌍 **Timezone-Correct Stats**: Improved the data engine to handle local timezones correctly. Your trend charts will now show the exact months and days of your interactions, regardless of where you are in the world.
+- 📊 **Self-Naming Chart Titles**: Trend charts now explicitly name themselves based on your selection.
+- 📅 **Current Year Baseline**: "This year" view consistently starts from January.
 - 🗑️ **Bulk History Deletion**: Quick "Clear Day" button in the history tab.
 - ⚡ **Instant UI Sync**: Unified refresh engine for immediate data reflection.
 - 📱 **Mobile-First Navigation**: Fixed bottom navigation bar for better reachability on mobile devices.
