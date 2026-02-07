@@ -1452,36 +1452,44 @@ const processImportCSV = (csvContent) => {
 
         // Find column indices
         const indices = {};
-        required.forEach(col => {
-            indices[col] = headers.indexOf(col);
+        headers.forEach((h, i) => {
+            indices[h] = i;
         });
 
-        if (indices.date === -1 || indices.amount === -1 || indices.category === -1 || indices.description === -1) {
+        if (indices.date === undefined || indices.amount === undefined || indices.category === undefined || indices.description === undefined) {
             throw new Error('CSV must have columns: Date, Amount, Category, Description');
         }
 
+        const existingIds = new Set(APP_STATE.expenses.map(e => e.id));
         const newExpenses = [];
-        for (let i = 1; i < lines.length; i++) {
-            // Simple split, handling quotes for description
-            const regex = /(".*?"|[^,]+)(?=\s*,|\s*$)/g;
-            const values = lines[i].match(regex).map(v => v.replace(/^"|"$/g, '').trim());
+        let duplicateCount = 0;
 
-            if (values.length < 4) continue;
+        for (let i = 1; i < lines.length; i++) {
+            const regex = /(".*?"|[^,]+)(?=\s*,|\s*$)/g;
+            const matches = lines[i].match(regex);
+            if (!matches) continue;
+            const values = matches.map(v => v.replace(/^"|"$/g, '').trim());
+
+            const id = indices.id !== undefined ? values[indices.id] : generateId();
+
+            // If ID exists, it's a duplicate - skip it
+            if (indices.id !== undefined && existingIds.has(id)) {
+                duplicateCount++;
+                continue;
+            }
 
             const date = values[indices.date];
             const amount = parseFloat(values[indices.amount]);
-            const category = values[indices.category].toLowerCase();
+            const category = values[indices.category]?.toLowerCase();
             const description = values[indices.description];
 
-            // Validation
             if (!date || isNaN(new Date(date).getTime())) continue;
             if (isNaN(amount)) continue;
 
-            // Check if category exists, fallback to 'other'
             const finalCat = APP_STATE.categories[category] ? category : 'other';
 
             newExpenses.push({
-                id: generateId(),
+                id,
                 date,
                 amount,
                 category: finalCat,
@@ -1490,15 +1498,21 @@ const processImportCSV = (csvContent) => {
         }
 
         if (newExpenses.length === 0) {
-            throw new Error('No valid transactions found in CSV.');
+            if (duplicateCount > 0) {
+                showToast(`All ${duplicateCount} entries already exist on this device.`, 'info');
+            } else {
+                throw new Error('No valid transactions found in CSV.');
+            }
+            return;
         }
 
-        if (confirm(`Import ${newExpenses.length} transactions? This will append to your current data.`)) {
+        let confirmMsg = `Import ${newExpenses.length} transactions?`;
+        if (duplicateCount > 0) confirmMsg += ` (${duplicateCount} duplicates skipped)`;
+
+        if (confirm(confirmMsg)) {
             APP_STATE.expenses = [...APP_STATE.expenses, ...newExpenses];
             saveExpenses();
-            renderHistory();
-            updateTodayTotal();
-            updateHomeBudgetStatus();
+            refreshApp(); // Use unified refresh
             showToast(`Successfully imported ${newExpenses.length} records! 📈`);
             $('#exportModal').classList.add('hidden');
         }
@@ -1513,12 +1527,13 @@ const exportToCSV = () => {
         return;
     }
 
-    const headers = ['Date', 'Amount', 'Category', 'Description'];
+    const headers = ['Date', 'Amount', 'Category', 'Description', 'Id'];
     const rows = APP_STATE.expenses.map(e => [
         e.date,
         e.amount,
         e.category,
-        `"${e.description.replace(/"/g, '""')}"`
+        `"${e.description.replace(/"/g, '""')}"`,
+        e.id
     ]);
 
     const csvContent = [
@@ -1550,7 +1565,7 @@ const exportAssetsToCSV = () => {
         return;
     }
 
-    const headers = ['Name', 'Type', 'Value', 'Quantity', 'InterestRate', 'Period', 'TaxRate'];
+    const headers = ['Name', 'Type', 'Value', 'Quantity', 'InterestRate', 'Period', 'TaxRate', 'Id'];
     const rows = APP_STATE.assets.map(a => [
         `"${a.name.replace(/"/g, '""')}"`,
         a.type,
@@ -1558,7 +1573,8 @@ const exportAssetsToCSV = () => {
         a.quantity || 0,
         a.interestRate || 0,
         a.period || 0,
-        a.taxRate || 0
+        a.taxRate || 0,
+        a.id
     ]);
 
     const csvContent = [headers.join(','), ...rows.map(r => r.join(','))].join('\n');
@@ -1803,13 +1819,11 @@ const processImportAssetsCSV = (csvContent) => {
 
         const headers = lines[0].split(',').map(h => h.trim().toLowerCase());
         const indices = {};
-        headers.forEach((h, i) => indices[h] = h.includes(' ') ? -1 : i); // Simple header mapping
+        headers.forEach((h, i) => indices[h] = i);
 
-        // Re-mapping for common headers if needed or just use strict names
         const required = ['name', 'type'];
         required.forEach(req => {
             if (indices[req] === undefined) {
-                // Try to find it manually if headers have spaces etc
                 indices[req] = headers.findIndex(h => h.includes(req));
             }
         });
@@ -1818,21 +1832,30 @@ const processImportAssetsCSV = (csvContent) => {
             throw new Error('CSV must have Name and Type columns');
         }
 
+        const existingIds = new Set(APP_STATE.assets.map(a => a.id));
         const newAssets = [];
+        let duplicateCount = 0;
+
         for (let i = 1; i < lines.length; i++) {
             const regex = /(".*?"|[^,]+)(?=\s*,|\s*$)/g;
             const matches = lines[i].match(regex);
             if (!matches) continue;
             const values = matches.map(v => v.replace(/^"|"$/g, '').trim());
 
+            const id = indices.id !== undefined ? values[indices.id] : generateId();
+
+            if (indices.id !== undefined && existingIds.has(id)) {
+                duplicateCount++;
+                continue;
+            }
+
             const name = values[indices.name];
             const typeToken = values[indices.type]?.toLowerCase();
 
-            // Validate type
             if (!name || !typeToken || !ASSET_TYPES[typeToken]) continue;
 
             newAssets.push({
-                id: generateId(),
+                id,
                 name,
                 type: typeToken,
                 value: parseFloat(values[indices.value]) || 0,
@@ -1843,11 +1866,22 @@ const processImportAssetsCSV = (csvContent) => {
             });
         }
 
-        if (newAssets.length === 0) throw new Error('No valid assets found in CSV.');
+        if (newAssets.length === 0) {
+            if (duplicateCount > 0) {
+                showToast(`All ${duplicateCount} assets already exist.`, 'info');
+            } else {
+                throw new Error('No valid assets found in CSV.');
+            }
+            return;
+        }
 
-        if (confirm(`Import ${newAssets.length} assets? This will append to your current list.`)) {
+        let confirmMsg = `Import ${newAssets.length} assets?`;
+        if (duplicateCount > 0) confirmMsg += ` (${duplicateCount} duplicates skipped)`;
+
+        if (confirm(confirmMsg)) {
             APP_STATE.assets = [...APP_STATE.assets, ...newAssets];
             saveAssets();
+            refreshApp(); // Use unified refresh
             renderAssets();
             showToast(`Imported ${newAssets.length} assets! 🚀`);
             $('#exportModal').classList.add('hidden');

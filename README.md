@@ -2,12 +2,12 @@
 
 A beautiful Progressive Web App (PWA) for tracking daily expenses with 100% privacy. All data is stored locally on your device.
 
-**Current Version: `v58` (February 2026)**
+**Current Version: `v60` (February 2026)**
 
-## 🚀 Recent Updates (v58)
-- 📲 **Differential QR Sync**: QR codes now only transfer the last 30 days of expenses, ensuring they remain small and easy to scan. Your IDs are used to prevent duplicates, so old data on your receiver device stays untouched and safe.
-- 🐛 **Fixed Stats Crash**: Resolved a critical issue that prevented charts from rendering correctly.
-- 📈 **Monthly Trend Granularity**: Long-term trends now strictly show monthly totals.
+## 🚀 Recent Updates (v60)
+- 💾 **Smart CSV Import/Export**: CSV files now include unique IDs. The app intelligently skips duplicates during import, allowing you to back up and restore without creating double entries.
+- 📲 **Differential QR Sync**: QR codes are now optimized for speed by syncing only the last 30 days of data.
+- 📈 **Monthly Trend Granularity**: Long-term trends are now strictly grouped by month for better clarity.
 - 🗑️ **Bulk History Deletion**: Quick "Clear Day" button in the history tab.
 - ⚡ **Instant UI Sync**: Unified refresh engine for immediate data reflection.
 - 📱 **Mobile-First Navigation**: Fixed bottom navigation bar for better reachability on mobile devices.
