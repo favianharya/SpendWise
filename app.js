@@ -7,9 +7,18 @@ const APP_STATE = {
     deleteExpenseId: null,
     categoryChart: null,
     trendChart: null,
+    assetAllocationChart: null,
     statsGrouping: 'group', // 'group' or 'category'
     viewMonth: new Date().getMonth(),
-    viewYear: new Date().getFullYear()
+    viewYear: new Date().getFullYear(),
+    monthlySettings: {}, // { "YYYY-MM": { income: 0, limits: { groupId: 0 } } }
+    assets: [], // { id, name, type, value, quantity, color }
+    metalPrices: {
+        gold: 0, // IDR per gram
+        silver: 0, // IDR per gram
+        lastUpdated: null
+    },
+    editingAssetId: null
 };
 
 // Default static categories
@@ -24,6 +33,17 @@ const DEFAULT_CATEGORIES = {
     other: { icon: '📦', color: '#95a5a6' }
 };
 
+const ASSET_TYPES = {
+    stock: { icon: '📈', color: '#4d96ff', label: 'Stock' },
+    gold: { icon: '🟡', color: '#ffd93d', label: 'Gold' },
+    silver: { icon: '⚪', color: '#95a5a6', label: 'Silver' },
+    crypto: { icon: '🪙', color: '#f7931a', label: 'Crypto' },
+    cash: { icon: '💵', color: '#6bcb77', label: 'Cash / Savings' },
+    property: { icon: '🏠', color: '#ff6b6b', label: 'Property' },
+    deposit: { icon: '🏦', color: '#6c63ff', label: 'Deposit' },
+    other: { icon: '📦', color: '#9b59b6', label: 'Other' }
+};
+
 // ==================== Utility Functions ====================
 const formatCurrency = (amount) => {
     return new Intl.NumberFormat('id-ID', {
@@ -32,6 +52,24 @@ const formatCurrency = (amount) => {
         minimumFractionDigits: 0,
         maximumFractionDigits: 0
     }).format(amount);
+};
+
+const parseCurrency = (str) => {
+    if (typeof str !== 'string') return parseFloat(str) || 0;
+    // Remove everything EXCEPT digits. This handles '1,234,567' -> 1234567
+    return parseFloat(str.replace(/[^0-9]/g, '')) || 0;
+};
+
+const handleCurrencyInput = (e) => {
+    const input = e.target;
+    // Get digits only
+    let value = input.value.replace(/[^0-9]/g, '');
+    if (value === '') {
+        input.value = '';
+        return;
+    }
+    // Convert to number and format with commas (en-US style)
+    input.value = parseInt(value).toLocaleString('en-US');
 };
 
 const formatDate = (dateStr) => {
@@ -78,19 +116,77 @@ const saveExpenses = () => {
 
 const loadBudgets = () => {
     try {
+        const storedMonthly = localStorage.getItem('monthlySettings');
         const storedGroups = localStorage.getItem('budgetGroups');
         const storedIncome = localStorage.getItem('monthlyIncome');
-        APP_STATE.budgetGroups = storedGroups ? JSON.parse(storedGroups) : [];
-        APP_STATE.monthlyIncome = storedIncome ? parseFloat(storedIncome) : 0;
+
+        APP_STATE.monthlySettings = storedMonthly ? JSON.parse(storedMonthly) : {};
+
+        // If we have no monthly settings yet, migrate old data into the current month
+        const today = new Date();
+        const periodKey = `${today.getFullYear()}-${(today.getMonth() + 1).toString().padStart(2, '0')}`;
+
+        if (Object.keys(APP_STATE.monthlySettings).length === 0 && (storedGroups || storedIncome)) {
+            APP_STATE.monthlySettings[periodKey] = {
+                income: storedIncome ? parseFloat(storedIncome) : 0,
+                groups: storedGroups ? JSON.parse(storedGroups) : []
+            };
+        }
+
+        // Initialize session state from the current month's settings or defaults
+        const activeBudgetData = getActiveBudgetData();
+        APP_STATE.budgetGroups = activeBudgetData.groups;
+        APP_STATE.monthlyIncome = activeBudgetData.income;
+
     } catch (e) {
+        console.error('Error loading budgets:', e);
         APP_STATE.budgetGroups = [];
         APP_STATE.monthlyIncome = 0;
+        APP_STATE.monthlySettings = {};
     }
 };
 
 const saveBudgets = () => {
-    localStorage.setItem('budgetGroups', JSON.stringify(APP_STATE.budgetGroups));
-    localStorage.setItem('monthlyIncome', APP_STATE.monthlyIncome.toString());
+    const periodKey = `${APP_STATE.viewYear}-${(APP_STATE.viewMonth + 1).toString().padStart(2, '0')}`;
+
+    // Extract limits from the current budgetGroups to save into monthlySettings
+    const limits = {};
+    APP_STATE.budgetGroups.forEach(g => {
+        limits[g.id] = g.limit || 0;
+    });
+
+    APP_STATE.monthlySettings[periodKey] = {
+        income: APP_STATE.monthlyIncome,
+        groups: APP_STATE.budgetGroups,
+        limits: limits
+    };
+    localStorage.setItem('monthlySettings', JSON.stringify(APP_STATE.monthlySettings));
+};
+
+// Helper to get budget data for the currently viewed period
+const getActiveBudgetData = () => {
+    const periodKey = `${APP_STATE.viewYear}-${(APP_STATE.viewMonth + 1).toString().padStart(2, '0')}`;
+    const today = new Date();
+    const todayKey = `${today.getFullYear()}-${(today.getMonth() + 1).toString().padStart(2, '0')}`;
+
+    // If we have data for this specific month, return it
+    if (APP_STATE.monthlySettings[periodKey]) {
+        return APP_STATE.monthlySettings[periodKey];
+    }
+
+    // Otherwise, inherit from Today's snapshot if it exists
+    if (APP_STATE.monthlySettings[todayKey]) {
+        return {
+            income: APP_STATE.monthlySettings[todayKey].income,
+            groups: JSON.parse(JSON.stringify(APP_STATE.monthlySettings[todayKey].groups)) // Deep clone
+        };
+    }
+
+    // Final fallback: use the global defaults (which would be empty if nothing was ever saved)
+    return {
+        income: 0, // Default income
+        groups: [] // Default groups
+    };
 };
 
 const loadCategories = () => {
@@ -111,6 +207,19 @@ const loadCategories = () => {
 
 const saveCategories = () => {
     localStorage.setItem('categories', JSON.stringify(APP_STATE.categories));
+};
+
+const saveAssets = () => {
+    localStorage.setItem('assets', JSON.stringify(APP_STATE.assets));
+};
+
+const loadAssets = () => {
+    try {
+        const stored = localStorage.getItem('assets');
+        APP_STATE.assets = stored ? JSON.parse(stored) : [];
+    } catch (e) {
+        APP_STATE.assets = [];
+    }
 };
 
 // ==================== DOM Elements ====================
@@ -169,6 +278,8 @@ const initTabs = () => {
                 renderStats();
             } else if (tabId === 'budget') {
                 renderBudget();
+            } else if (tabId === 'assets') {
+                renderAssets();
             }
         });
     });
@@ -211,20 +322,23 @@ const initCategorySelection = () => {
     renderCategoryGrid(); // Initial render
 };
 
+
+
 // ==================== Form Handling ====================
 const initForm = () => {
     const form = $('#expenseForm');
-    const dateInput = $('#date');
+    const categoryGrid = $('#categoryGrid');
+
+    if (!form) return;
 
     // Set default date to today
-    dateInput.value = getToday();
+    $('#date').valueAsDate = new Date();
 
     form.addEventListener('submit', (e) => {
         e.preventDefault();
-
-        const amount = parseFloat($('#amount').value);
+        const amount = parseCurrency($('#amount').value);
         const category = $('#category').value;
-        const description = $('#description').value.trim() || getCategoryName(category);
+        const description = $('#description').value.trim();
         const date = $('#date').value;
 
         if (!amount || amount <= 0) {
@@ -394,6 +508,25 @@ const renderStats = () => {
                 daysInPeriod = 1;
             }
             break;
+        case 'custom':
+            const startStr = $('#statsStartDate').value;
+            const endStr = $('#statsEndDate').value;
+            if (startStr && endStr) {
+                const start = new Date(startStr);
+                const end = new Date(endStr);
+                // Reset times for accurate day count
+                start.setHours(0, 0, 0, 0);
+                end.setHours(23, 59, 59, 999);
+
+                filteredExpenses = filteredExpenses.filter(e => {
+                    const d = new Date(e.date);
+                    return d >= start && d <= end;
+                });
+                daysInPeriod = Math.max(1, Math.ceil((end - start) / (1000 * 60 * 60 * 24)));
+            } else {
+                daysInPeriod = 1;
+            }
+            break;
     }
 
     // Calculate stats
@@ -413,9 +546,14 @@ const renderStats = () => {
     $('#highestDay').textContent = formatCurrency(highestDay);
     $('#totalTransactions').textContent = filteredExpenses.length;
 
+    const totalAssetsValue = APP_STATE.assets.reduce((sum, a) => sum + a.value, 0);
+    $('#statsTotalAssets').textContent = formatCurrency(totalAssetsValue);
+
     // Render charts
+    $('.charts-grid')?.classList.toggle('no-assets', APP_STATE.assets.length === 0);
     renderCategoryChart(filteredExpenses);
     renderTrendChart(filteredExpenses, period);
+    renderAssetAllocationChart();
 };
 
 const renderCategoryChart = (expenses) => {
@@ -634,6 +772,72 @@ const renderTrendChart = (expenses, period) => {
         }
     });
 };
+
+const renderAssetAllocationChart = () => {
+    const canvas = $('#assetAllocationChart');
+    if (!canvas) return;
+    const ctx = canvas.getContext('2d');
+    const container = $('#assetChartContainer');
+
+    if (APP_STATE.assets.length === 0) {
+        if (container) container.classList.add('hidden');
+        return;
+    }
+
+    if (container) container.classList.remove('hidden');
+
+    const typeTotals = {};
+    APP_STATE.assets.forEach(asset => {
+        let val = asset.value;
+        if (asset.type === 'gold' && APP_STATE.metalPrices.gold > 0) {
+            val = asset.quantity * APP_STATE.metalPrices.gold;
+        } else if (asset.type === 'silver' && APP_STATE.metalPrices.silver > 0) {
+            val = asset.quantity * APP_STATE.metalPrices.silver;
+        } else if (asset.type === 'deposit') {
+            const grossInterest = asset.value * (asset.interestRate / 100) * (asset.period / 12);
+            const netInterest = grossInterest * (1 - (asset.taxRate || 0) / 100);
+            val = asset.value + netInterest;
+        }
+        typeTotals[asset.type] = (typeTotals[asset.type] || 0) + val;
+    });
+
+    const labels = Object.keys(typeTotals).map(type => ASSET_TYPES[type].label);
+    const data = Object.values(typeTotals);
+    const colors = Object.keys(typeTotals).map(type => ASSET_TYPES[type].color);
+
+    if (APP_STATE.assetAllocationChart) {
+        APP_STATE.assetAllocationChart.destroy();
+    }
+
+    APP_STATE.assetAllocationChart = new Chart(ctx, {
+        type: 'doughnut',
+        data: {
+            labels,
+            datasets: [{
+                data,
+                backgroundColor: colors,
+                borderWidth: 0,
+                hoverOffset: 10
+            }]
+        },
+        options: {
+            responsive: true,
+            maintainAspectRatio: false,
+            plugins: {
+                legend: {
+                    position: 'bottom',
+                    labels: {
+                        color: '#6b6b80',
+                        usePointStyle: true,
+                        padding: 15,
+                        font: { size: 11 }
+                    }
+                }
+            },
+            cutout: '70%'
+        }
+    });
+};
 // ==================== Budget Management ====================
 // ==================== Budget Management ====================
 const renderBudget = () => {
@@ -641,19 +845,30 @@ const renderBudget = () => {
     const incomeInput = $('#monthlyIncome');
     const emptyState = $('#emptyBudgetState');
 
+    // Switch active state to the viewed month's data
+    const activeData = getActiveBudgetData();
+    APP_STATE.budgetGroups = activeData.groups;
+    APP_STATE.monthlyIncome = activeData.income;
+
     // Set current date for budget period
     const displayMonth = new Date(APP_STATE.viewYear, APP_STATE.viewMonth, 1);
+    const periodKey = `${APP_STATE.viewYear}-${(APP_STATE.viewMonth + 1).toString().padStart(2, '0')}`;
+
     $('#budgetPeriod').textContent = displayMonth.toLocaleDateString('id-ID', { month: 'long', year: 'numeric' });
 
     // Set income value
-    incomeInput.value = APP_STATE.monthlyIncome || '';
+    incomeInput.value = APP_STATE.monthlyIncome ? APP_STATE.monthlyIncome.toLocaleString('en-US') : '';
 
     if (APP_STATE.budgetGroups.length === 0) {
         list.innerHTML = '';
         emptyState.classList.remove('hidden');
     } else {
         emptyState.classList.add('hidden');
-        list.innerHTML = APP_STATE.budgetGroups.map((group) => `
+        list.innerHTML = APP_STATE.budgetGroups.map((group) => {
+            const periodKey = `${APP_STATE.viewYear}-${(APP_STATE.viewMonth + 1).toString().padStart(2, '0')}`;
+            const monthlyData = APP_STATE.monthlySettings[periodKey] || { income: APP_STATE.monthlyIncome, limits: {} };
+            const limit = monthlyData.limits?.[group.id] ?? group.limit ?? 0;
+            return `
             <div class="budget-category-item" data-group-id="${group.id}">
                 <div class="budget-category-header" style="margin-bottom: var(--spacing-sm);">
                     <div class="budget-category-label">
@@ -663,12 +878,12 @@ const renderBudget = () => {
                     </div>
                     <div class="budget-category-input-group">
                         <span class="currency-prefix">Rp</span>
-                        <input type="number" 
+                        <input type="text" 
                                class="group-budget-input" 
                                data-id="${group.id}" 
+                               data-type="currency"
                                placeholder="0" 
-                               value="${group.limit || ''}" 
-                               min="0" step="1000">
+                               value="${limit ? limit.toLocaleString('en-US') : ''}">
                     </div>
                 </div>
                 
@@ -680,11 +895,11 @@ const renderBudget = () => {
                     </div>
                     <div class="budget-category-chips" style="display: flex; flex-wrap: wrap; gap: 6px;">
                         ${Object.entries(APP_STATE.categories).map(([catId, cat]) => {
-            const isActive = group.categoryIds.includes(catId);
-            // Also check if this category is assigned to ANY OTHER group
-            const isClaimedByOther = APP_STATE.budgetGroups.some(g => g.id !== group.id && g.categoryIds.includes(catId));
+                const isActive = group.categoryIds.includes(catId);
+                // Also check if this category is assigned to ANY OTHER group
+                const isClaimedByOther = APP_STATE.budgetGroups.some(g => g.id !== group.id && g.categoryIds.includes(catId));
 
-            return `
+                return `
                                 <div class="category-chip ${isActive ? 'active' : ''} ${isClaimedByOther ? 'disabled' : ''}" 
                                      data-group-id="${group.id}" 
                                      data-cat-id="${catId}"
@@ -692,11 +907,12 @@ const renderBudget = () => {
                                     ${cat.icon} ${getCategoryName(catId)}
                                 </div>
                             `;
-        }).join('')}
+            }).join('')}
                     </div>
                 </div>
             </div>
-        `).join('');
+        `;
+        }).join('');
     }
 
     // Attach listeners for removing group
@@ -743,7 +959,10 @@ const renderBudget = () => {
 };
 
 const createGroupProgress = (group) => {
-    const limit = group.limit || 0;
+    const periodKey = `${APP_STATE.viewYear}-${(APP_STATE.viewMonth + 1).toString().padStart(2, '0')}`;
+    const monthlyData = APP_STATE.monthlySettings[periodKey] || { income: APP_STATE.monthlyIncome, limits: {} };
+    const limit = monthlyData.limits[group.id] ?? group.limit ?? 0;
+
     const monthStart = new Date(APP_STATE.viewYear, APP_STATE.viewMonth, 1);
     const monthEnd = new Date(APP_STATE.viewYear, APP_STATE.viewMonth + 1, 0);
 
@@ -778,6 +997,9 @@ const createGroupProgress = (group) => {
 };
 
 const updateBudgetSummary = () => {
+    const periodKey = `${APP_STATE.viewYear}-${(APP_STATE.viewMonth + 1).toString().padStart(2, '0')}`;
+    const monthlyData = APP_STATE.monthlySettings[periodKey] || { income: APP_STATE.monthlyIncome, limits: {} };
+
     const monthStart = new Date(APP_STATE.viewYear, APP_STATE.viewMonth, 1);
     const monthEnd = new Date(APP_STATE.viewYear, APP_STATE.viewMonth + 1, 0);
 
@@ -789,7 +1011,7 @@ const updateBudgetSummary = () => {
         })
         .reduce((sum, e) => sum + e.amount, 0);
 
-    const income = APP_STATE.monthlyIncome || 0;
+    const income = monthlyData.income || 0;
     const remaining = Math.max(income - totalSpent, 0);
     const progress = income > 0 ? (totalSpent / income) * 100 : 0;
 
@@ -886,13 +1108,13 @@ const initBudgetForm = () => {
         form.addEventListener('submit', (e) => {
             e.preventDefault();
 
-            const income = parseFloat($('#monthlyIncome').value) || 0;
+            const income = parseCurrency($('#monthlyIncome').value);
 
             // Calculate sum of all budget group limits
             let totalLimits = 0;
             const inputs = $$('.group-budget-input');
             inputs.forEach(input => {
-                totalLimits += parseFloat(input.value) || 0;
+                totalLimits += parseCurrency(input.value);
             });
 
             // Validation: Cannot proceed if total budget > monthly income
@@ -904,11 +1126,16 @@ const initBudgetForm = () => {
                 return;
             }
 
+            const periodKey = `${APP_STATE.viewYear}-${(APP_STATE.viewMonth + 1).toString().padStart(2, '0')}`;
+            if (!APP_STATE.monthlySettings[periodKey]) {
+                APP_STATE.monthlySettings[periodKey] = { income: 0, limits: {} };
+            }
+
             APP_STATE.monthlyIncome = income;
 
             inputs.forEach(input => {
                 const id = input.dataset.id;
-                const limit = parseFloat(input.value) || 0;
+                const limit = parseCurrency(input.value);
                 const group = APP_STATE.budgetGroups.find(g => g.id === id);
                 if (group) group.limit = limit;
             });
@@ -918,7 +1145,7 @@ const initBudgetForm = () => {
             updateBudgetSummary();
             renderBudgetAlerts();
             updateHomeBudgetStatus();
-            showToast('Budget settings saved successfully!');
+            showToast('Budget saved for ' + $('#budgetPeriod').textContent + '!');
         });
     }
 };
@@ -928,22 +1155,29 @@ const renderBudgetAlerts = () => {
     if (!container) return;
     container.innerHTML = '';
 
-    const today = new Date();
-    const monthStart = new Date(today.getFullYear(), today.getMonth(), 1);
+    const periodKey = `${APP_STATE.viewYear}-${(APP_STATE.viewMonth + 1).toString().padStart(2, '0')}`;
+    const monthlyData = APP_STATE.monthlySettings[periodKey] || { income: APP_STATE.monthlyIncome, limits: {} };
+
+    const monthStart = new Date(APP_STATE.viewYear, APP_STATE.viewMonth, 1);
+    const monthEnd = new Date(APP_STATE.viewYear, APP_STATE.viewMonth + 1, 0);
 
     APP_STATE.budgetGroups.forEach(group => {
-        if (group.limit <= 0) return;
+        const limit = monthlyData.limits[group.id] ?? group.limit ?? 0;
+        if (limit <= 0) return;
 
         const spent = APP_STATE.expenses
-            .filter(e => group.categoryIds.includes(e.category) && new Date(e.date) >= monthStart)
+            .filter(e => {
+                const d = new Date(e.date);
+                return group.categoryIds.includes(e.category) && d >= monthStart && d <= monthEnd;
+            })
             .reduce((sum, e) => sum + e.amount, 0);
 
-        const percent = (spent / group.limit) * 100;
+        const percent = (spent / limit) * 100;
 
         if (percent >= 100) {
-            createAlertElement(container, '🚨', `Exceeded: ${group.name}`, `Spent ${formatCurrency(spent)} (${formatCurrency(spent - group.limit)} over limit).`, 'danger');
+            createAlertElement(container, '🚨', `Exceeded: ${group.name}`, `Spent ${formatCurrency(spent)} (${formatCurrency(spent - limit)} over limit).`, 'danger');
         } else if (percent >= 80) {
-            createAlertElement(container, '⚠️', `Near Limit: ${group.name}`, `${Math.round(percent)}% used of ${formatCurrency(group.limit)}.`, 'warning');
+            createAlertElement(container, '⚠️', `Near Limit: ${group.name}`, `${Math.round(percent)}% used of ${formatCurrency(limit)}.`, 'warning');
         }
     });
 
@@ -971,12 +1205,16 @@ const updateHomeBudgetStatus = () => {
 
     const today = new Date();
     const monthStart = new Date(today.getFullYear(), today.getMonth(), 1);
+    const periodKey = `${today.getFullYear()}-${(today.getMonth() + 1).toString().padStart(2, '0')}`;
+    const monthlyData = APP_STATE.monthlySettings[periodKey] || { income: APP_STATE.monthlyIncome, limits: {} };
+    const income = monthlyData.income || APP_STATE.monthlyIncome || 0;
+
     const totalSpent = APP_STATE.expenses
         .filter(e => new Date(e.date) >= monthStart)
         .reduce((sum, e) => sum + e.amount, 0);
 
-    if (APP_STATE.monthlyIncome > 0) {
-        const percent = Math.min((totalSpent / APP_STATE.monthlyIncome) * 100, 100);
+    if (income > 0) {
+        const percent = Math.min((totalSpent / income) * 100, 100);
         bar.style.width = percent + '%';
         bar.className = 'budget-progress-bar ' + (percent >= 100 ? 'danger' : percent >= 80 ? 'warning' : '');
         if (percentText) percentText.textContent = Math.round(percent) + '% of budget used';
@@ -1018,14 +1256,17 @@ const initDeleteModal = () => {
 
 // ==================== CSV Export ====================
 const initExportModal = () => {
-    const exportBtn = $('#exportBtn');
+    const exportBtns = [$('#exportBtn'), $('#headerExportBtn')];
     const modal = $('#exportModal');
     const closeBtn = $('#closeExportModal');
     const downloadBtn = $('#downloadCsvBtn');
 
-    exportBtn.addEventListener('click', () => {
-        $('#exportTotal').textContent = APP_STATE.expenses.length;
-        modal.classList.remove('hidden');
+    exportBtns.forEach(btn => {
+        if (!btn) return;
+        btn.addEventListener('click', () => {
+            $('#exportTotal').textContent = APP_STATE.expenses.length;
+            modal.classList.remove('hidden');
+        });
     });
 
     const closeModal = () => {
@@ -1044,6 +1285,113 @@ const initExportModal = () => {
     downloadBtn.addEventListener('click', () => {
         exportToCSV();
     });
+
+    const importBtn = $('#importCsvBtn');
+    const importInput = $('#importCsvInput');
+
+    if (importBtn && importInput) {
+        importBtn.addEventListener('click', () => importInput.click());
+
+        importInput.addEventListener('change', (e) => {
+            const file = e.target.files[0];
+            if (!file) return;
+
+            const reader = new FileReader();
+            reader.onload = (event) => {
+                const csvData = event.target.result;
+                processImportCSV(csvData);
+                importInput.value = ''; // Reset input
+            };
+            reader.readAsText(file);
+        });
+    }
+
+    // Assets Export/Import
+    const downloadAssetsBtn = $('#downloadAssetsCsvBtn');
+    if (downloadAssetsBtn) {
+        downloadAssetsBtn.addEventListener('click', exportAssetsToCSV);
+    }
+
+    const importAssetsBtn = $('#importAssetsCsvBtn');
+    const importAssetsInput = $('#importAssetsCsvInput');
+    if (importAssetsBtn && importAssetsInput) {
+        importAssetsBtn.addEventListener('click', () => importAssetsInput.click());
+        importAssetsInput.addEventListener('change', (e) => {
+            const file = e.target.files[0];
+            if (!file) return;
+            const reader = new FileReader();
+            reader.onload = (event) => {
+                processImportAssetsCSV(event.target.result);
+                importAssetsInput.value = '';
+            };
+            reader.readAsText(file);
+        });
+    }
+};
+
+const processImportCSV = (csvContent) => {
+    try {
+        const lines = csvContent.split('\n').filter(line => line.trim());
+        if (lines.length < 2) throw new Error('CSV file is empty or missing data.');
+
+        const headers = lines[0].split(',').map(h => h.trim().toLowerCase());
+        const required = ['date', 'amount', 'category', 'description'];
+
+        // Find column indices
+        const indices = {};
+        required.forEach(col => {
+            indices[col] = headers.indexOf(col);
+        });
+
+        if (indices.date === -1 || indices.amount === -1 || indices.category === -1 || indices.description === -1) {
+            throw new Error('CSV must have columns: Date, Amount, Category, Description');
+        }
+
+        const newExpenses = [];
+        for (let i = 1; i < lines.length; i++) {
+            // Simple split, handling quotes for description
+            const regex = /(".*?"|[^,]+)(?=\s*,|\s*$)/g;
+            const values = lines[i].match(regex).map(v => v.replace(/^"|"$/g, '').trim());
+
+            if (values.length < 4) continue;
+
+            const date = values[indices.date];
+            const amount = parseFloat(values[indices.amount]);
+            const category = values[indices.category].toLowerCase();
+            const description = values[indices.description];
+
+            // Validation
+            if (!date || isNaN(new Date(date).getTime())) continue;
+            if (isNaN(amount)) continue;
+
+            // Check if category exists, fallback to 'other'
+            const finalCat = APP_STATE.categories[category] ? category : 'other';
+
+            newExpenses.push({
+                id: generateId(),
+                date,
+                amount,
+                category: finalCat,
+                description: description || ''
+            });
+        }
+
+        if (newExpenses.length === 0) {
+            throw new Error('No valid transactions found in CSV.');
+        }
+
+        if (confirm(`Import ${newExpenses.length} transactions? This will append to your current data.`)) {
+            APP_STATE.expenses = [...APP_STATE.expenses, ...newExpenses];
+            saveExpenses();
+            renderHistory();
+            updateTodayTotal();
+            updateHomeBudgetStatus();
+            showToast(`Successfully imported ${newExpenses.length} records! 📈`);
+            $('#exportModal').classList.add('hidden');
+        }
+    } catch (error) {
+        showToast(error.message, 'error');
+    }
 };
 
 const exportToCSV = () => {
@@ -1068,12 +1416,8 @@ const exportToCSV = () => {
     const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
     const url = URL.createObjectURL(blob);
     const link = document.createElement('a');
-
-    const timestamp = new Date().toISOString().split('T')[0];
     link.setAttribute('href', url);
-    link.setAttribute('download', `SpendWise_Export_${timestamp}.csv`);
-    link.style.visibility = 'hidden';
-
+    link.setAttribute('download', `spendwise_expenses_${new Date().toISOString().split('T')[0]}.csv`);
     document.body.appendChild(link);
     link.click();
     document.body.removeChild(link);
@@ -1087,12 +1431,488 @@ const exportToCSV = () => {
     }
 };
 
+const exportAssetsToCSV = () => {
+    if (APP_STATE.assets.length === 0) {
+        showToast('No assets to export', 'error');
+        return;
+    }
 
+    const headers = ['Name', 'Type', 'Value', 'Quantity', 'InterestRate', 'Period', 'TaxRate'];
+    const rows = APP_STATE.assets.map(a => [
+        `"${a.name.replace(/"/g, '""')}"`,
+        a.type,
+        a.value || 0,
+        a.quantity || 0,
+        a.interestRate || 0,
+        a.period || 0,
+        a.taxRate || 0
+    ]);
+
+    const csvContent = [headers.join(','), ...rows.map(r => r.join(','))].join('\n');
+    const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement('a');
+    link.setAttribute('href', url);
+    link.setAttribute('download', `spendwise_assets_${new Date().toISOString().split('T')[0]}.csv`);
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+    showToast('Assets exported! 📦');
+    $('#exportModal').classList.add('hidden');
+};
+
+const processImportAssetsCSV = (csvContent) => {
+    try {
+        const lines = csvContent.split('\n').filter(line => line.trim());
+        if (lines.length < 2) throw new Error('CSV file is empty or missing data.');
+
+        const headers = lines[0].split(',').map(h => h.trim().toLowerCase());
+        const indices = {};
+        headers.forEach((h, i) => indices[h] = h.includes(' ') ? -1 : i); // Simple header mapping
+
+        // Re-mapping for common headers if needed or just use strict names
+        const required = ['name', 'type'];
+        required.forEach(req => {
+            if (indices[req] === undefined) {
+                // Try to find it manually if headers have spaces etc
+                indices[req] = headers.findIndex(h => h.includes(req));
+            }
+        });
+
+        if (indices.name === -1 || indices.type === -1) {
+            throw new Error('CSV must have Name and Type columns');
+        }
+
+        const newAssets = [];
+        for (let i = 1; i < lines.length; i++) {
+            const regex = /(".*?"|[^,]+)(?=\s*,|\s*$)/g;
+            const matches = lines[i].match(regex);
+            if (!matches) continue;
+            const values = matches.map(v => v.replace(/^"|"$/g, '').trim());
+
+            const name = values[indices.name];
+            const typeToken = values[indices.type]?.toLowerCase();
+
+            // Validate type
+            if (!name || !typeToken || !ASSET_TYPES[typeToken]) continue;
+
+            newAssets.push({
+                id: generateId(),
+                name,
+                type: typeToken,
+                value: parseFloat(values[indices.value]) || 0,
+                quantity: parseFloat(values[indices.quantity]) || 0,
+                interestRate: parseFloat(values[indices.interestrate]) || 0,
+                period: parseInt(values[indices.period]) || 0,
+                taxRate: parseFloat(values[indices.taxrate]) || 0
+            });
+        }
+
+        if (newAssets.length === 0) throw new Error('No valid assets found in CSV.');
+
+        if (confirm(`Import ${newAssets.length} assets? This will append to your current list.`)) {
+            APP_STATE.assets = [...APP_STATE.assets, ...newAssets];
+            saveAssets();
+            renderAssets();
+            showToast(`Imported ${newAssets.length} assets! 🚀`);
+            $('#exportModal').classList.add('hidden');
+        }
+    } catch (e) {
+        showToast(e.message, 'error');
+    }
+};
+
+
+
+// ==================== Asset Management ====================
+const renderAssets = () => {
+    const list = $('#assetsList');
+    const totalEl = $('#totalAssetsValue');
+    const allocationBar = $('#assetAllocationBar');
+    if (!list) return;
+
+    if (APP_STATE.assets.length === 0) {
+        list.innerHTML = `
+            <div class="empty-state" style="padding: var(--spacing-xl) 0;">
+                <div class="empty-icon">🪙</div>
+                <p style="color: var(--text-muted); font-size: 0.9rem;">No assets tracked yet. Add your first one above!</p>
+            </div>
+        `;
+        totalEl.textContent = formatCurrency(0);
+        if (allocationBar) allocationBar.innerHTML = '';
+        return;
+    }
+
+    // Calculate dynamic values for Gold, Silver, and Deposit
+    const assetsWithValues = APP_STATE.assets.map(asset => {
+        let currentValue = asset.value;
+        let earnedInterest = 0;
+
+        if (asset.type === 'gold' && APP_STATE.metalPrices.gold > 0) {
+            currentValue = asset.quantity * APP_STATE.metalPrices.gold;
+        } else if (asset.type === 'silver' && APP_STATE.metalPrices.silver > 0) {
+            currentValue = asset.quantity * APP_STATE.metalPrices.silver;
+        } else if (asset.type === 'deposit') {
+            // Gross Simple interest: P * r * t
+            const grossInterest = asset.value * (asset.interestRate / 100) * (asset.period / 12);
+            const netInterest = grossInterest * (1 - (asset.taxRate || 0) / 100);
+            earnedInterest = netInterest;
+            currentValue = asset.value + netInterest;
+        }
+        return { ...asset, displayValue: currentValue, earnedInterest };
+    });
+
+    const totalValue = assetsWithValues.reduce((sum, a) => sum + a.displayValue, 0);
+    totalEl.textContent = formatCurrency(totalValue);
+
+    // Update stats total card too if it exists
+    const statsTotal = $('#statsTotalAssets');
+    if (statsTotal) statsTotal.textContent = formatCurrency(totalValue);
+
+    // Render list
+    list.innerHTML = assetsWithValues.map(asset => {
+        const type = ASSET_TYPES[asset.type] || ASSET_TYPES.other;
+        const percent = ((asset.displayValue / totalValue) * 100).toFixed(1);
+        const isMetal = asset.type === 'gold' || asset.type === 'silver';
+        const isDeposit = asset.type === 'deposit';
+
+        let extraInfo = '';
+        let subLabel = `${type.label} • ${percent}%`;
+
+        if (isMetal) {
+            subLabel = `${type.label} • ${asset.quantity}g • ${percent}%`;
+            if (APP_STATE.metalPrices[asset.type] > 0) {
+                extraInfo = `<div style="font-size: 0.65rem; color: var(--accent-primary); opacity: 0.8;">@ ${formatCurrency(APP_STATE.metalPrices[asset.type])}/g</div>`;
+            }
+        } else if (isDeposit) {
+            subLabel = `${type.label} • ${asset.period} Mo • ${asset.interestRate}% p.a (Tax: ${asset.taxRate}%) • ${percent}%`;
+            extraInfo = `<div style="font-size: 0.65rem; color: var(--success); opacity: 0.9;">+ Net Interest: ${formatCurrency(asset.earnedInterest)}</div>`;
+        }
+
+        return `
+            <div class="card asset-item" style="margin-bottom: var(--spacing-md); display: flex; align-items: center; justify-content: space-between; border-left: 4px solid ${type.color};">
+                <div style="display: flex; align-items: center; gap: 12px;">
+                    <div style="font-size: 1.5rem;">${type.icon}</div>
+                    <div>
+                        <div style="font-weight: 600; color: var(--text-primary); text-transform: capitalize;">${asset.name}</div>
+                        <div style="font-size: 0.75rem; color: var(--text-muted);">${subLabel}</div>
+                        ${extraInfo}
+                    </div>
+                </div>
+                <div style="text-align: right;">
+                    <div style="font-weight: 700; color: var(--text-primary);">${formatCurrency(asset.displayValue)}</div>
+                    <div style="display: flex; gap: 8px; justify-content: flex-end; margin-top: 4px;">
+                        <button class="edit-asset-btn" data-id="${asset.id}" style="background: none; border: none; color: var(--accent-primary); font-size: 0.75rem; cursor: pointer; opacity: 0.8; padding: 2px;">Edit</button>
+                        <button class="remove-asset-btn" data-id="${asset.id}" style="background: none; border: none; color: var(--danger); font-size: 0.75rem; cursor: pointer; opacity: 0.6; padding: 2px;">Remove</button>
+                    </div>
+                </div>
+            </div>
+        `;
+    }).join('');
+
+    // Update allocation bar
+    if (allocationBar) {
+        allocationBar.innerHTML = assetsWithValues.map(asset => {
+            const type = ASSET_TYPES[asset.type] || ASSET_TYPES.other;
+            const percent = (asset.displayValue / totalValue) * 100;
+            return `<div style="width: ${percent}%; height: 100%; background: ${type.color};" title="${asset.name}: ${percent.toFixed(1)}%"></div>`;
+        }).join('');
+        allocationBar.style.display = 'flex';
+        allocationBar.style.overflow = 'hidden';
+        allocationBar.style.borderRadius = '4px';
+    }
+
+    // Remove buttons
+    $$('.remove-asset-btn').forEach(btn => {
+        btn.addEventListener('click', (e) => {
+            e.stopPropagation();
+            const id = btn.dataset.id;
+            if (confirm('Remove this asset?')) {
+                APP_STATE.assets = APP_STATE.assets.filter(a => a.id !== id);
+                if (APP_STATE.editingAssetId === id) resetAssetForm();
+                saveAssets();
+                renderAssets();
+                showToast('Asset removed');
+            }
+        });
+    });
+
+    // Edit buttons
+    $$('.edit-asset-btn').forEach(btn => {
+        btn.addEventListener('click', () => {
+            const id = btn.dataset.id;
+            const asset = APP_STATE.assets.find(a => a.id === id);
+            if (asset) prepareAssetEdit(asset);
+        });
+    });
+};
+
+const prepareAssetEdit = (asset) => {
+    APP_STATE.editingAssetId = asset.id;
+
+    // Fill form
+    $('#assetName').value = asset.name;
+    $('#assetType').value = asset.type;
+    $('#assetType').dispatchEvent(new Event('change')); // Trigger visibility logic
+
+    if (asset.type === 'gold' || asset.type === 'silver') {
+        $('#assetWeight').value = asset.quantity;
+    } else if (asset.type === 'deposit') {
+        $('#assetValue').value = asset.value;
+        $('#assetRate').value = asset.interestRate;
+        $('#assetPeriod').value = asset.period;
+        $('#assetTax').value = asset.taxRate;
+    } else {
+        $('#assetValue').value = asset.value;
+    }
+
+    // Update UI
+    $('#assetSubmitBtn').textContent = 'Update Asset';
+    $('#cancelAssetEdit').classList.remove('hidden');
+
+    // Scroll to form
+    $('#assetForm').scrollIntoView({ behavior: 'smooth', block: 'center' });
+};
+
+const resetAssetForm = () => {
+    const form = $('#assetForm');
+    if (!form) return;
+
+    APP_STATE.editingAssetId = null;
+    form.reset();
+
+    const assetSubmitBtn = $('#assetSubmitBtn');
+    if (assetSubmitBtn) assetSubmitBtn.textContent = 'Add Asset';
+
+    const cancelAssetEdit = $('#cancelAssetEdit');
+    if (cancelAssetEdit) cancelAssetEdit.classList.add('hidden');
+
+    $('#manualValueGroup').classList.remove('hidden');
+    $('#weightGroup').classList.add('hidden');
+    $('#depositGroup').classList.add('hidden');
+    $('#assetValue').required = true;
+    $('#assetWeight').required = false;
+    $('#assetRate').required = false;
+    $('#assetPeriod').required = false;
+    $('#assetTax').required = false;
+    $('#assetValueLabel').textContent = 'Current Value (Rp)';
+};
+
+const initCurrencyInputs = () => {
+    document.addEventListener('input', (e) => {
+        if (e.target.matches('[data-type="currency"]')) {
+            handleCurrencyInput(e);
+        }
+    });
+
+    // Formatting for initial loads or value resets
+    $$('[data-type="currency"]').forEach(input => {
+        if (input.value) {
+            const val = parseCurrency(input.value);
+            input.value = val.toLocaleString('en-US');
+        }
+    });
+};
+
+const initAssetForm = () => {
+    const form = $('#assetForm');
+    if (!form) return;
+
+    $('#cancelAssetEdit').addEventListener('click', resetAssetForm);
+
+    form.addEventListener('submit', (e) => {
+        e.preventDefault();
+        const nameInput = $('#assetName');
+        const typeInput = $('#assetType');
+        const valueInput = $('#assetValue');
+        const weightInput = $('#assetWeight');
+        const rateInput = $('#assetRate');
+        const periodInput = $('#assetPeriod');
+        const taxInput = $('#assetTax');
+
+        const name = nameInput.value.trim();
+        const type = typeInput.value;
+        const isMetal = type === 'gold' || type === 'silver';
+        const isDeposit = type === 'deposit';
+
+        let value = 0;
+        let quantity = 0;
+        let rate = 0;
+        let period = 0;
+        let tax = 0;
+
+        if (isMetal) {
+            quantity = parseFloat(weightInput.value) || 0;
+            if (quantity <= 0) {
+                showToast('Please enter a valid weight in grams', 'error');
+                return;
+            }
+        } else if (isDeposit) {
+            value = parseCurrency(valueInput.value);
+            rate = parseFloat(rateInput.value) || 0;
+            period = parseInt(periodInput.value) || 0;
+            tax = parseFloat(taxInput.value) || 20; // Default tax to 20% if not provided
+            if (value <= 0) {
+                showToast('Please enter a valid investment amount', 'error');
+                return;
+            }
+        } else {
+            value = parseCurrency(valueInput.value);
+            if (value <= 0) {
+                showToast('Please enter a valid value', 'error');
+                return;
+            }
+        }
+
+        if (APP_STATE.editingAssetId) {
+            // Update existing
+            const index = APP_STATE.assets.findIndex(a => a.id === APP_STATE.editingAssetId);
+            if (index !== -1) {
+                APP_STATE.assets[index] = {
+                    ...APP_STATE.assets[index],
+                    name,
+                    type,
+                    value: isMetal ? 0 : value,
+                    quantity: isMetal ? quantity : 0,
+                    interestRate: isDeposit ? rate : 0,
+                    period: isDeposit ? period : 0,
+                    taxRate: isDeposit ? tax : 0
+                };
+                showToast('Asset updated! ✨');
+            }
+        } else {
+            // Add new
+            const newAsset = {
+                id: generateId(),
+                name,
+                type,
+                value: isMetal ? 0 : value,
+                quantity: isMetal ? quantity : 0,
+                interestRate: isDeposit ? rate : 0,
+                period: isDeposit ? period : 0,
+                taxRate: isDeposit ? tax : 20 // Default tax to 20% if not provided
+            };
+            APP_STATE.assets.push(newAsset);
+            showToast(`Asset "${name}" added! 🚀`);
+        }
+
+        saveAssets();
+        renderAssets();
+        resetAssetForm();
+    });
+
+    // Handle Asset Type Change
+    const typeInput = $('#assetType');
+    const manualGroup = $('#manualValueGroup');
+    const weightGroup = $('#weightGroup');
+    const depositGroup = $('#depositGroup');
+    const valueInput = $('#assetValue');
+    const weightInput = $('#assetWeight');
+    const rateInput = $('#assetRate');
+    const periodInput = $('#assetPeriod');
+
+    if (typeInput) {
+        typeInput.addEventListener('change', () => {
+            const type = typeInput.value;
+            const isMetal = type === 'gold' || type === 'silver';
+            const isDeposit = type === 'deposit';
+
+            // Reset visibility
+            manualGroup.classList.remove('hidden');
+            weightGroup.classList.add('hidden');
+            depositGroup.classList.add('hidden');
+
+            valueInput.required = true;
+            weightInput.required = false;
+            rateInput.required = false;
+            periodInput.required = false;
+            $('#assetTax').required = false;
+
+            if (isMetal) {
+                manualGroup.classList.add('hidden');
+                weightGroup.classList.remove('hidden');
+                valueInput.required = false;
+                weightInput.required = true;
+            } else if (isDeposit) {
+                depositGroup.classList.remove('hidden');
+                rateInput.required = true;
+                periodInput.required = true;
+                $('#assetTax').required = true;
+                $('#assetValueLabel').textContent = 'Initial Principal / Investment (Rp)';
+            } else {
+                $('#assetValueLabel').textContent = 'Current Value (Rp)';
+            }
+        });
+    }
+};
+
+const fetchMetalPrices = async () => {
+    // Only fetch if not updated in the last hour
+    if (APP_STATE.metalPrices.lastUpdated && (new Date() - new Date(APP_STATE.metalPrices.lastUpdated)) < 3600000) {
+        return;
+    }
+
+    try {
+        // 1. Get USD/IDR exchange rate
+        const exRes = await fetch('https://api.exchangerate-api.com/v4/latest/USD');
+        const exData = await exRes.json();
+        const usdToIdr = exData.rates.IDR;
+
+        // 2. Get Gold and Silver prices (USD per Troy Ounce)
+        // 1 Troy Ounce = 31.1035 grams
+        const troyOunceToGram = 31.1035;
+
+        const goldRes = await fetch('https://api.gold-api.com/price/XAU');
+        const goldData = await goldRes.json();
+        const goldUsdPerGram = goldData.price / troyOunceToGram;
+
+        const silverRes = await fetch('https://api.gold-api.com/price/XAG');
+        const silverData = await silverRes.json();
+        const silverUsdPerGram = silverData.price / troyOunceToGram;
+
+        APP_STATE.metalPrices = {
+            gold: goldUsdPerGram * usdToIdr,
+            silver: silverUsdPerGram * usdToIdr,
+            lastUpdated: new Date().toISOString()
+        };
+
+        console.log('Metal prices updated:', APP_STATE.metalPrices);
+        renderAssets(); // Re-render to show updated values
+    } catch (e) {
+        console.error('Error fetching metal prices:', e);
+    }
+};
 
 // ==================== Filter Event Listeners ====================
 const initFilters = () => {
     $('#historyFilter').addEventListener('change', renderHistory);
-    $('#statsPeriod').addEventListener('change', renderStats);
+
+    const statsPeriod = $('#statsPeriod');
+    const customRange = $('#statsCustomRange');
+    const startInput = $('#statsStartDate');
+    const endInput = $('#statsEndDate');
+
+    // Set default range: Start of month to Today
+    if (startInput && endInput) {
+        const now = new Date();
+        const firstDay = new Date(now.getFullYear(), now.getMonth(), 1);
+        startInput.value = firstDay.toISOString().split('T')[0];
+        endInput.value = now.toISOString().split('T')[0];
+    }
+
+    if (statsPeriod) {
+        statsPeriod.addEventListener('change', () => {
+            if (statsPeriod.value === 'custom') {
+                customRange.classList.remove('hidden');
+            } else {
+                customRange.classList.add('hidden');
+            }
+            renderStats();
+        });
+    }
+
+    if (startInput) startInput.addEventListener('change', renderStats);
+    if (endInput) endInput.addEventListener('change', renderStats);
 
     const groupingSelect = $('#statsGrouping');
     if (groupingSelect) {
@@ -1115,12 +1935,15 @@ const initApp = () => {
     loadExpenses();
     loadCategories();
     loadBudgets();
+    loadAssets();
 
     // Initialize components
+    initCurrencyInputs();
     initTabs();
     renderCategoryGrid();
     initForm();
     initBudgetForm();
+    initAssetForm();
     initDeleteModal();
     initExportModal();
     initFilters();
@@ -1128,6 +1951,8 @@ const initApp = () => {
     // Initial render
     updateTodayTotal();
     updateHomeBudgetStatus();
+    renderAssets();
+    fetchMetalPrices();
 };
 
 // Start app when DOM is ready

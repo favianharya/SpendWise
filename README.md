@@ -2,22 +2,27 @@
 
 A beautiful Progressive Web App (PWA) for tracking daily expenses with 100% privacy. All data is stored locally on your device.
 
-**Current Version: `v24` (February 2026)**
+**Current Version: `v30` (February 2026)**
 
-## 🚀 Recent Updates (v24)
-- 🎯 **Budget Groups**: Create high-level containers for categories.
-- 📅 **Historical Budgeting**: Navigate past months to see how you performed against your budget plan.
-- 📈 **Enhanced Stats**: Toggle charts between "By Category" and "By Budget Group" views.
-- 🛡️ **Budget Safety**: Prevents setting budget limits that exceed your monthly income.
-- ✨ **UI Refinements**: New icon selector for groups and intuitive blue selection highlights.
+## 🚀 Recent Updates (v30)
+- 📱 **Mobile-First Navigation**: Fixed bottom navigation bar for better reachability on mobile devices.
+- 🎨 **Adaptive UI**: Symmetrical and adaptive category grid using CSS Container Queries for perfect fit on all screens.
+- 📊 **Enhanced Stats Layout**: Redesigned statistics page with a prioritized hero section and smart grid that adapts when assets are empty.
+- 🛠️ **UX Refinements**: Glassmorphism effects, improved currency input fields (no more doubled borders), and safe-area support for modern notches.
+- 💰 **Asset Tracking**: New "Assets" page to manage and track values for Stocks, Gold, Crypto, and more.
+- 📊 **CSV Import**: Restore or migrate data by uploading CSV files with a standardized format.
+- 📅 **Custom Date Stats**: Select any date range in Statistics for precise spending analysis.
+- 🔄 **Monthly Snapshots**: Truly independent budget plans and structures for every month.
 
 ## Features
 
 - ✅ **Track Daily Expenses** - Add amount, category, and description
-- ✅ **High-Level Budgeting** - Set limits for groups like "Pocket Money" or "Bills"
+- ✅ **Asset Management** - Track net worth and asset allocation (Stocks, Gold, etc.)
+- ✅ **High-Level Budgeting** - Set limits for groups like "Nabung" or "Lifestyle"
+- ✅ **CSV Import/Export** - Full backup and restore capabilities via CSV
 - ✅ **Historical Overview** - Navigate backwards to previous months to track history
-- ✅ **Transaction History** - View expenses by day, week, month, or all time
-- ✅ **Statistics & Charts** - Beautiful doughnut and line charts with grouping support
+- ✅ **Custom Stats Range** - Analyze spending over any specific time period
+- ✅ **Statistics & Charts** - Beautiful doughnut, trend, and allocation charts
 - ✅ **Offline Support** - Works without internet connection
 - ✅ **Installable** - Add to home screen like a native app
 - ✅ **CSV Export** - Download your data as a CSV file anytime

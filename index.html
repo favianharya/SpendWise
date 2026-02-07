@@ -48,6 +48,13 @@
                     <span class="logo-icon">💰</span>
                     <span class="logo-text">SpendWise</span>
                 </div>
+                <button id="headerExportBtn" class="header-action-btn mobile-only" title="Backup Data">
+                    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                        <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4" />
+                        <polyline points="7 10 12 15 17 10" />
+                        <line x1="12" y1="15" x2="12" y2="3" />
+                    </svg>
+                </button>
             </div>
         </header>
 
@@ -88,7 +95,13 @@
                 </svg>
                 <span>Budget</span>
             </button>
-            <button id="exportBtn" class="nav-tab nav-action" title="Export to CSV">
+            <button class="nav-tab" data-tab="assets">
+                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                    <path d="M12 2v20M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6" />
+                </svg>
+                <span>Assets</span>
+            </button>
+            <button id="exportBtn" class="nav-tab nav-action desktop-only" title="Export to CSV">
                 <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
                     <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4" />
                     <polyline points="7 10 12 15 17 10" />
@@ -127,7 +140,7 @@
                         <label for="amount">Amount (Rp)</label>
                         <div class="input-wrapper amount-input">
                             <span class="currency-prefix">Rp</span>
-                            <input type="number" id="amount" name="amount" placeholder="0" required min="0" step="100">
+                            <input type="text" id="amount" name="amount" placeholder="0" required data-type="currency">
                         </div>
                     </div>
 
@@ -187,12 +200,20 @@
             <!-- Stats Tab -->
             <section id="statsTab" class="tab-content">
                 <div class="stats-period">
-                    <select id="statsPeriod" class="filter-select">
-                        <option value="week">This Week</option>
-                        <option value="month" selected>This Month</option>
-                        <option value="year">This Year</option>
-                        <option value="all">All Time</option>
-                    </select>
+                    <div class="filter-group">
+                        <select id="statsPeriod" class="filter-select">
+                            <option value="week">This Week</option>
+                            <option value="month" selected>This Month</option>
+                            <option value="year">This Year</option>
+                            <option value="all">All Time</option>
+                            <option value="custom">Custom Range</option>
+                        </select>
+                    </div>
+                    <div id="statsCustomRange" class="custom-range-row hidden">
+                        <input type="date" id="statsStartDate" class="nav-btn-date">
+                        <span class="range-sep">to</span>
+                        <input type="date" id="statsEndDate" class="nav-btn-date">
+                    </div>
                 </div>
 
                 <div class="stats-grid">
@@ -224,9 +245,23 @@
                             <span class="stat-value" id="totalTransactions">0</span>
                         </div>
                     </div>
+                    <div class="stat-card">
+                        <div class="stat-icon">💰</div>
+                        <div class="stat-info">
+                            <span class="stat-label">Total Assets</span>
+                            <span class="stat-value" id="statsTotalAssets">Rp 0</span>
+                        </div>
+                    </div>
                 </div>
 
                 <div class="charts-grid">
+                    <div class="chart-card card">
+                        <h3>Daily Spending Trend</h3>
+                        <div class="chart-container line-chart">
+                            <canvas id="trendChart"></canvas>
+                        </div>
+                    </div>
+
                     <div class="chart-card card">
                         <div
                             style="display: flex; justify-content: space-between; align-items: center; margin-bottom: var(--spacing-md);">
@@ -242,10 +277,10 @@
                         </div>
                     </div>
 
-                    <div class="chart-card card">
-                        <h3>Daily Spending Trend</h3>
-                        <div class="chart-container line-chart">
-                            <canvas id="trendChart"></canvas>
+                    <div class="chart-card card" id="assetChartContainer">
+                        <h3>Asset Allocation</h3>
+                        <div class="chart-container">
+                            <canvas id="assetAllocationChart"></canvas>
                         </div>
                     </div>
                 </div>
@@ -327,7 +362,7 @@
                             <label for="monthlyIncome">Total Monthly Income / Allowance</label>
                             <div class="input-wrapper amount-input">
                                 <span class="currency-prefix">Rp</span>
-                                <input type="number" id="monthlyIncome" placeholder="0" min="0" step="1000">
+                                <input type="text" id="monthlyIncome" placeholder="0" data-type="currency">
                             </div>
                         </div>
 
@@ -354,6 +389,103 @@
 
                 <div class="budget-alerts" id="budgetAlerts">
                     <!-- Alerts and reminders will be injected here -->
+            </section>
+
+            <!-- Assets Tab -->
+            <section id="assetsTab" class="tab-content">
+                <div class="card summary-card">
+                    <div class="summary-header">
+                        <span class="summary-label">Total Assets Value</span>
+                    </div>
+                    <div class="summary-amount" id="totalAssetsValue">Rp 0</div>
+                    <div id="assetAllocationBar" class="budget-progress-container"
+                        style="margin-top: var(--spacing-md); height: 8px;">
+                        <!-- Allocation bar will be injected here -->
+                    </div>
+                </div>
+
+                <div class="card">
+                    <div class="card-header">
+                        <h2 class="form-title">Track New Asset</h2>
+                    </div>
+                    <form id="assetForm" class="expense-form">
+                        <div class="form-group">
+                            <label for="assetName">Asset Name</label>
+                            <input type="text" id="assetName" name="assetName" placeholder="e.g. BTC, Gold, Apple Stock"
+                                required>
+                        </div>
+                        <div class="form-group">
+                            <label for="assetType">Asset Type</label>
+                            <select id="assetType" name="assetType" required>
+                                <option value="stock">📈 Stock</option>
+                                <option value="gold">🟡 Gold</option>
+                                <option value="silver">⚪ Silver</option>
+                                <option value="crypto">🪙 Crypto</option>
+                                <option value="cash">💵 Cash / Savings</option>
+                                <option value="property">🏠 Property</option>
+                                <option value="deposit">🏦 Deposit (Deposito)</option>
+                                <option value="other">📦 Other</option>
+                            </select>
+                        </div>
+                        <div class="form-group" id="manualValueGroup">
+                            <label for="assetValue" id="assetValueLabel">Initial Principal / Current Value (Rp)</label>
+                            <div class="input-wrapper amount-input">
+                                <span class="currency-prefix" id="assetAmountPrefix">Rp</span>
+                                <input type="text" id="assetValue" name="assetValue" placeholder="0" required
+                                    data-type="currency">
+                            </div>
+                        </div>
+
+                        <div id="depositGroup" class="hidden">
+                            <div class="form-row"
+                                style="display: grid; grid-template-columns: 1fr 1fr 1fr; gap: var(--spacing-md);">
+                                <div class="form-group">
+                                    <label for="assetRate">Interest (% p.a)</label>
+                                    <div class="input-wrapper amount-input">
+                                        <span class="currency-prefix">%</span>
+                                        <input type="number" id="assetRate" name="assetRate" placeholder="0.00" min="0"
+                                            step="0.01">
+                                    </div>
+                                </div>
+                                <div class="form-group">
+                                    <label for="assetPeriod">Months</label>
+                                    <div class="input-wrapper amount-input">
+                                        <span class="currency-prefix">Mo</span>
+                                        <input type="number" id="assetPeriod" name="assetPeriod" placeholder="12"
+                                            min="1" step="1">
+                                    </div>
+                                </div>
+                                <div class="form-group">
+                                    <label for="assetTax">Tax (%)</label>
+                                    <div class="input-wrapper amount-input">
+                                        <span class="currency-prefix">%</span>
+                                        <input type="number" id="assetTax" name="assetTax" placeholder="20" min="0"
+                                            step="1" value="20">
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+
+                        <div class="form-group hidden" id="weightGroup">
+                            <label for="assetWeight">Weight (grams)</label>
+                            <div class="input-wrapper amount-input">
+                                <span class="currency-prefix">Gr</span>
+                                <input type="number" id="assetWeight" name="assetWeight" placeholder="0.00" min="0"
+                                    step="0.01">
+                            </div>
+                        </div>
+                        <div style="display: flex; gap: var(--spacing-md); margin-top: var(--spacing-md);">
+                            <button type="submit" id="assetSubmitBtn" class="submit-btn" style="margin-top: 0;">Add
+                                Asset</button>
+                            <button type="button" id="cancelAssetEdit" class="submit-btn hidden"
+                                style="margin-top: 0; background: var(--bg-card); color: var(--text-primary); border: 1px solid var(--border-color);">Cancel</button>
+                        </div>
+                    </form>
+                </div>
+
+                <div id="assetsList" class="assets-list" style="margin-bottom: 100px;">
+                    <!-- Assets will be populated here -->
+                </div>
             </section>
         </main>
     </div>
@@ -383,7 +515,7 @@
                     </div>
                 </div>
 
-                <button id="downloadCsvBtn" class="submit-btn">
+                <button id="downloadCsvBtn" class="submit-btn" style="margin-bottom: var(--spacing-xl);">
                     <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"
                         style="margin-right: 8px;">
                         <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4" />
@@ -392,6 +524,78 @@
                     </svg>
                     Download CSV
                 </button>
+
+                <div class="import-section"
+                    style="border-top: 1px solid rgba(255,255,255,0.1); padding-top: var(--spacing-xl);">
+                    <h4 class="subsection-title" style="margin-bottom: var(--spacing-md);">Import from CSV</h4>
+                    <p style="font-size: 0.8rem; color: var(--text-muted); margin-bottom: var(--spacing-md);">
+                        Upload a CSV file to restore your expenses.
+                    </p>
+
+                    <div class="import-requirements"
+                        style="background: rgba(0,0,0,0.2); padding: var(--spacing-md); border-radius: var(--radius-md); margin-bottom: var(--spacing-lg);">
+                        <p
+                            style="font-size: 0.75rem; font-weight: 600; color: var(--text-secondary); margin-bottom: 8px;">
+                            CSV Requirements:</p>
+                        <ul style="font-size: 0.7rem; color: var(--text-muted); padding-left: 16px; line-height: 1.5;">
+                            <li>Columns: <strong>Date, Amount, Category, Description</strong></li>
+                            <li>Date format: <strong>YYYY-MM-DD</strong></li>
+                            <li>Amount: <strong>Numbers only</strong></li>
+                            <li>Category: Use internal names (e.g. <code>food</code>, <code>transport</code>,
+                                <code>bills</code>, <code>entertainment</code>, <code>health</code>,
+                                <code>shopping</code>, <code>other</code>)
+                            </li>
+                        </ul>
+                    </div>
+
+                    <input type="file" id="importCsvInput" accept=".csv" class="hidden">
+                    <button id="importCsvBtn" class="submit-btn secondary"
+                        style="background: rgba(255,255,255,0.05); border: 2px dashed rgba(255,255,255,0.1);">
+                        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+                            stroke-width="2" style="margin-right: 8px;">
+                            <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4" />
+                            <polyline points="17 8 12 3 7 8" />
+                            <line x1="12" y1="3" x2="12" y2="15" />
+                        </svg>
+                        Choose CSV File
+                    </button>
+                </div>
+
+                <div class="import-section"
+                    style="border-top: 1px solid rgba(255,255,255,0.1); padding-top: var(--spacing-xl); margin-top: var(--spacing-xl);">
+                    <h4 class="subsection-title" style="margin-bottom: var(--spacing-md);">Assets Management</h4>
+                    <p style="font-size: 0.8rem; color: var(--text-muted); margin-bottom: var(--spacing-md);">
+                        Backup or restore your tracked assets.
+                    </p>
+                    <div style="display: flex; gap: var(--spacing-md);">
+                        <button id="downloadAssetsCsvBtn" class="submit-btn"
+                            style="flex: 1; height: auto; padding: 12px;">
+                            Export Assets CSV
+                        </button>
+                        <button id="importAssetsCsvBtn" class="submit-btn secondary"
+                            style="flex: 1; height: auto; padding: 12px; background: rgba(255,255,255,0.05); border: 2px dashed rgba(255,255,255,0.1);">
+                            Import Assets CSV
+                        </button>
+                    </div>
+                    <input type="file" id="importAssetsCsvInput" accept=".csv" class="hidden">
+                    <div class="import-requirements"
+                        style="background: rgba(0,0,0,0.2); padding: var(--spacing-md); border-radius: var(--radius-md); margin-bottom: var(--spacing-lg); margin-top: var(--spacing-md);">
+                        <p
+                            style="font-size: 0.75rem; font-weight: 600; color: var(--text-secondary); margin-bottom: 8px;">
+                            Assets CSV Requirements:</p>
+                        <ul
+                            style="font-size: 0.7rem; color: var(--text-muted); padding-left: 16px; line-height: 1.5; list-style-type: none;">
+                            <li>• <strong>Name:</strong> Custom label</li>
+                            <li>• <strong>Type:</strong> <code>cash</code>, <code>gold</code>, <code>silver</code>,
+                                <code>stock</code>, <code>crypto</code>, <code>property</code>, <code>deposit</code>,
+                                <code>other</code>
+                            </li>
+                            <li>• <strong>Value:</strong> Principal amount (Rp)</li>
+                            <li>• <strong>Quantity:</strong> Grams (Gold/Silver)</li>
+                            <li>• <strong>Deposit Specs:</strong> InterestRate (%), Period (Mo), TaxRate (%)</li>
+                        </ul>
+                    </div>
+                </div>
             </div>
         </div>
     </div>
