@@ -372,7 +372,7 @@ const initForm = () => {
 
         // Reset form
         form.reset();
-        dateInput.value = getToday();
+        $('#date').value = getToday();
         $$('.category-btn').forEach(b => b.classList.remove('selected'));
         APP_STATE.selectedCategory = null;
         $('#category').value = '';
