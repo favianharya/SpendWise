@@ -1837,14 +1837,18 @@ const generateSyncQR = () => {
 
     const jsonStr = JSON.stringify(syncData);
 
+    // Compress data using LZString
+    const compressedData = LZString.compressToBase64(jsonStr);
+    console.log(`QR Data Compression: ${jsonStr.length} -> ${compressedData.length} chars`);
+
     // QR limit for reliable scanning on screens is roughly 2300 chars
-    console.log('Final QR Data length:', jsonStr.length);
-    if (jsonStr.length > 2500) {
-        showToast('Too many entries for QR scan! Please use "Backup to CSV" instead.', 'error');
+    // With compression, we can fit much more.
+    if (compressedData.length > 2500) {
+        showToast(`Data too large even after compression (${compressedData.length} chars). Try exporting CSV or reducing 30-day window.`, 'error');
         return;
     }
 
-    QRCode.toCanvas(canvas, jsonStr, {
+    QRCode.toCanvas(canvas, compressedData, {
         width: 320,
         margin: 4,
         errorCorrectionLevel: 'L',
@@ -1896,14 +1900,24 @@ const stopQRScanner = async () => {
 };
 
 const onScanSuccess = (decodedText) => {
-    // Basic verification before stopping
-    if (!decodedText || !decodedText.startsWith('{')) return;
+    if (!decodedText) return;
 
     stopQRScanner();
     console.log('QR Code Scanned, length:', decodedText.length);
 
     try {
-        const incomingData = JSON.parse(decodedText);
+        let incomingData;
+
+        // 1. Try to decompress assuming Base64 string from LZString
+        // Compressed strings usually don't start with '{'
+        let decompressed = LZString.decompressFromBase64(decodedText);
+
+        // 2. Fallback: If decompression fails (returns null or empty), use original text
+        if (!decompressed) {
+            decompressed = decodedText;
+        }
+
+        incomingData = JSON.parse(decompressed);
 
         // Handle both old and new (minified) data formats
         const expenses = incomingData.e || incomingData.expenses || [];
